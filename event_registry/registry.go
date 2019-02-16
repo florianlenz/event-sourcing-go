@@ -1,7 +1,6 @@
 package event_registry
 
 import (
-	"errors"
 	"es/event"
 	"es/store"
 	"fmt"
@@ -31,12 +30,17 @@ type addEvent struct {
 	response     chan error
 }
 
-func (r *Registry) RegisterEvent(event event.IESEvent, eventFactory EventFactory) {
+func (r *Registry) RegisterEvent(event event.IESEvent, eventFactory EventFactory) error {
+
+	responseChan := make(chan error, 1)
 
 	r.addEvent <- addEvent{
 		event:        event,
 		eventFactory: eventFactory,
+		response:     responseChan,
 	}
+
+	return <-responseChan
 
 }
 
@@ -98,9 +102,9 @@ func New() *Registry {
 
 				// ensure that event hasn't been added
 				_, registered := registeredEvents[addEvent.event.Name()]
-				if !registered {
-					addEvent.response <- errors.New("event already added")
-					return
+				if registered {
+					addEvent.response <- fmt.Errorf("event with name '%s' got already registered", addEvent.event.Name())
+					continue
 				}
 
 				// register event
@@ -108,6 +112,8 @@ func New() *Registry {
 					event:   addEvent.event,
 					factory: addEvent.eventFactory,
 				}
+
+				addEvent.response <- nil
 
 			case eventToESEvent := <-eventToESEvent:
 
@@ -119,12 +125,21 @@ func New() *Registry {
 					eventToESEvent.response <- struct {
 						esEvent event.IESEvent
 						error   error
-					}{esEvent: nil, error: fmt.Errorf("no event registered for name: %s", e.Name)}
+					}{esEvent: nil, error: fmt.Errorf("event with name '%s' hasn't been registered", e.Name)}
 					continue
 				}
 
 				// create event from payload
 				esEvent := registeredEvent.factory(e.Payload)
+
+				// this is a case that shouldn't happen
+				if esEvent.Name() != e.Name {
+					eventToESEvent.response <- struct {
+						esEvent event.IESEvent
+						error   error
+					}{esEvent: nil, error: fmt.Errorf("attention! the creation of an event with name '%s' resulted in the creation of an event with name: '%s'", e.Name, esEvent.Name())}
+					continue
+				}
 
 				// send response back
 				eventToESEvent.response <- struct {
