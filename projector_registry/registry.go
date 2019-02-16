@@ -2,18 +2,18 @@ package projector_registry
 
 import (
 	"es/event"
-	"es/projector"
+	proj "es/projector"
 	"fmt"
 )
 
 type addProjector struct {
-	projector projector.IProjector
+	projector proj.IProjector
 	response  chan error
 }
 
 type queryProjectorsByEvent struct {
 	event        event.IESEvent
-	responseChan chan []projector.IProjector
+	responseChan chan []proj.IProjector
 }
 
 type Registry struct {
@@ -21,11 +21,29 @@ type Registry struct {
 	queryProjectorsByEvent chan queryProjectorsByEvent
 }
 
-func (r *Registry) Register(projector projector.IProjector) {
+func (r *Registry) Register(projector proj.IProjector) error {
+
+	respChan := make(chan error, 1)
+
+	r.addProjector <- struct {
+		projector proj.IProjector
+		response  chan error
+	}{projector: projector, response: respChan}
+
+	return <-respChan
 
 }
 
-func (r *Registry) ProjectorsForEvent(eventName string) []projector.IProjector {
+func (r *Registry) ProjectorsForEvent(event event.IESEvent) []proj.IProjector {
+
+	responseChan := make(chan []proj.IProjector)
+
+	r.queryProjectorsByEvent <- queryProjectorsByEvent{
+		event:        event,
+		responseChan: responseChan,
+	}
+
+	return <-responseChan
 
 }
 
@@ -44,7 +62,7 @@ func New() *Registry {
 
 		for {
 
-			registeredProjectors := map[string]projector.IProjector{}
+			registeredProjectors := map[string]proj.IProjector{}
 
 			select {
 			case addProjector := <-registerProjectorChan:
@@ -53,6 +71,7 @@ func New() *Registry {
 				_, exists := registeredProjectors[addProjector.projector.Name()]
 				if exists {
 					addProjector.response <- fmt.Errorf("couldn't add projector since a projector with the same name got already registered")
+					continue
 				}
 
 				// add projector
@@ -61,11 +80,11 @@ func New() *Registry {
 
 			case query := <-queryProjectorsByEvent:
 
-				filteredEvents := []projector.IProjector{}
+				filteredEvents := []proj.IProjector{}
 
-				for _, proje := range registeredProjectors {
-					if proje.InterestedInEvent(query.event) {
-						filteredEvents = append(filteredEvents, proje)
+				for _, projector := range registeredProjectors {
+					if projector.InterestedInEvent(query.event) {
+						filteredEvents = append(filteredEvents, projector)
 					}
 				}
 
