@@ -9,5 +9,5 @@ type IESEvent interface {
 	// version of the event
 	Version() uint8
 	// commit date
-	occurredAt() int64
+	OccurredAt() int64
 }
