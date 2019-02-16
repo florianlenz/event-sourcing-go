@@ -1,7 +1,7 @@
 package event
 
 // event interface
-type IEvent interface {
+type IESEvent interface {
 	// name of the event
 	Name() string
 	// event payload in a map
