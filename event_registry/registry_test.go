@@ -1,8 +1,8 @@
 package event_registry
 
 import (
+	"es"
 	"es/event"
-	"es/store"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -60,7 +60,7 @@ func TestSpec(t *testing.T) {
 				registry := New()
 
 				// register event
-				e, err := registry.EventToESEvent(store.Event{
+				e, err := registry.EventToESEvent(es.Event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeError, "event with name 'user.created' hasn't been registered")
@@ -81,7 +81,7 @@ func TestSpec(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
-				esEvent, err := registry.EventToESEvent(store.Event{
+				esEvent, err := registry.EventToESEvent(es.Event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeError, "attention! the creation of an event with name 'user.created' resulted in the creation of an event with name: 'wrong.event_name'")
@@ -105,7 +105,7 @@ func TestSpec(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
-				transformedEvent, err := registry.EventToESEvent(store.Event{
+				transformedEvent, err := registry.EventToESEvent(es.Event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeNil)

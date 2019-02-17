@@ -1,10 +1,10 @@
 package consistent
 
 import (
+	"es"
 	er "es/event_registry"
 	mb "es/msgbus"
 	pr "es/projector_registry"
-	es "es/store"
 )
 
 type Processor struct {
@@ -23,6 +23,7 @@ func New(
 	projectorRegistry pr.Registry,
 	eventRegistry er.Registry,
 	projectorRepository IProjectorRepository,
+	eventRepository es.IEventRepository,
 	bypassOutOfSyncCheck bool) *Processor {
 
 	stop := make(chan struct{})
@@ -46,13 +47,19 @@ func New(
 			case value := <-occurredEventSubscriber:
 
 				// cast to event
-				event, k := value.(es.Event)
+				eventID, k := value.(uint64)
 				if !k {
-					panic("expected to receive an event from the event store")
+					panic("expected to receive an event")
+				}
+
+				// persisted event
+				persistedEvent, err := eventRepository.FetchByID(eventID)
+				if err != nil {
+					panic(err)
 				}
 
 				// transform persisted event to event sourcing event
-				esEvent, err := eventRegistry.EventToESEvent(event)
+				esEvent, err := eventRegistry.EventToESEvent(*persistedEvent)
 				if err != nil {
 					// @todo log
 					panic(err)
@@ -75,12 +82,12 @@ func New(
 					}
 
 					// updated the last handled event on the projector
-					projectorRepository.UpdateLastHandledEvent(projector, event)
+					projectorRepository.UpdateLastHandledEvent(projector, *persistedEvent)
 
 				}
 
 				// emit event processed event
-				msgBus.Emit("event:processed", event)
+				msgBus.Emit("event:processed", eventID)
 
 			// kill go routine
 			case <-stop:

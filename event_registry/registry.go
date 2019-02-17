@@ -1,8 +1,8 @@
 package event_registry
 
 import (
+	"es"
 	"es/event"
-	"es/store"
 	"fmt"
 )
 
@@ -16,7 +16,7 @@ type registeredEvent struct {
 }
 
 type eventToESEvent struct {
-	event    store.Event
+	event    es.Event
 	response chan struct {
 		esEvent event.IESEvent
 		error   error
@@ -44,7 +44,7 @@ func (r *Registry) RegisterEvent(event event.IESEvent, eventFactory EventFactory
 
 }
 
-func (r *Registry) EventToESEvent(e store.Event) (event.IESEvent, error) {
+func (r *Registry) EventToESEvent(e es.Event) (event.IESEvent, error) {
 
 	// response channel
 	responseChan := make(chan struct {

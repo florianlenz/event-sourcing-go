@@ -1,9 +1,8 @@
-package store
+package es
 
 import (
 	e "es/event"
 	mb "es/msgbus"
-	"github.com/jinzhu/gorm"
 	"time"
 )
 
@@ -12,22 +11,14 @@ type addProcessedListener struct {
 	eventID  uint64
 }
 
-type EventStore struct {
-	db                       *gorm.DB
+type EventSourcing struct {
+	eventRepository          IEventRepository
 	messageBus               mb.IMessageBus
 	addProcessedListenerChan chan addProcessedListener
 	close                    chan struct{}
 }
 
-type Event struct {
-	ID         uint64
-	Name       string
-	Payload    e.Payload
-	Version    uint8
-	OccurredAt int64
-}
-
-func (es *EventStore) Commit(e e.IEvent, onProcessed chan struct{}) error {
+func (es *EventSourcing) Commit(e e.IESEvent, onProcessed chan struct{}) error {
 
 	// new event
 	eventToPersist := &Event{
@@ -38,7 +29,9 @@ func (es *EventStore) Commit(e e.IEvent, onProcessed chan struct{}) error {
 	}
 
 	// persist event
-	db := es.db.Save(eventToPersist)
+	if err := es.eventRepository.Save(eventToPersist); err != nil {
+		return err
+	}
 
 	// add processed listener
 	if onProcessed != nil {
@@ -49,19 +42,19 @@ func (es *EventStore) Commit(e e.IEvent, onProcessed chan struct{}) error {
 	}
 
 	// send event to message bus
-	es.messageBus.Emit("event:occurred", *eventToPersist)
+	es.messageBus.Emit("event:occurred", eventToPersist.ID)
 
-	return db.Error
+	return nil
 
 }
 
-func New(db *gorm.DB, mb mb.IMessageBus) *EventStore {
+func New(eventRepository IEventRepository, mb mb.IMessageBus) *EventSourcing {
 
 	addProcessedListenerChan := make(chan addProcessedListener)
 	closeChan := make(chan struct{})
 
-	es := &EventStore{
-		db:                       db,
+	es := &EventSourcing{
+		eventRepository:          eventRepository,
 		messageBus:               mb,
 		addProcessedListenerChan: addProcessedListenerChan,
 		close:                    closeChan,
