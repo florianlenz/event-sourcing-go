@@ -51,15 +51,15 @@ func New(
 					panic("expected to receive an event from the event store")
 				}
 
-				projectors := projectorRegistry.ProjectorsForEvent(event.Name)
-				for _, projector := range projectors {
+				// transform persisted event to event sourcing event
+				esEvent, err := eventRegistry.EventToESEvent(event)
+				if err != nil {
+					// @todo log
+					panic(err)
+				}
 
-					// transform persisted event to event sourcing event
-					esEvent, err := eventRegistry.EventToESEvent(event)
-					if err != nil {
-						// @todo log
-						panic(err)
-					}
+				projectors := projectorRegistry.ProjectorsForEvent(esEvent)
+				for _, projector := range projectors {
 
 					// make sure that the projector is not out of sync
 					if true == projectorRepository.OutOfSync(projector) && bypassOutOfSyncCheck == false {
