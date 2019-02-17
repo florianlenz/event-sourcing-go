@@ -5,6 +5,7 @@ import (
 	er "es/event_registry"
 	mb "es/msgbus"
 	pr "es/projector_registry"
+	"fmt"
 )
 
 type Processor struct {
@@ -24,6 +25,7 @@ func New(
 	eventRegistry er.Registry,
 	projectorRepository IProjectorRepository,
 	eventRepository es.IEventRepository,
+	logger es.ILogger,
 	bypassOutOfSyncCheck bool) *Processor {
 
 	stop := make(chan struct{})
@@ -49,40 +51,59 @@ func New(
 				// cast to event
 				eventID, k := value.(uint64)
 				if !k {
-					panic("expected to receive an event")
+					logger.Error(fmt.Errorf("expected to recevied event ID, received: '%v'", eventID))
+					continue
 				}
 
 				// persisted event
 				persistedEvent, err := eventRepository.FetchByID(eventID)
 				if err != nil {
-					panic(err)
+					logger.Error(err)
+					continue
 				}
 
 				// transform persisted event to event sourcing event
 				esEvent, err := eventRegistry.EventToESEvent(*persistedEvent)
 				if err != nil {
-					// @todo log
-					panic(err)
+					logger.Error(err)
+					continue
 				}
 
 				projectors := projectorRegistry.ProjectorsForEvent(esEvent)
 				for _, projector := range projectors {
 
+					// fetch projector
+					persistedProjector, err := projectorRepository.GetOrCreateProjector(projector)
+					if err != nil {
+						logger.Error(err)
+						continue
+					}
+
 					// make sure that the projector is not out of sync
-					if true == projectorRepository.OutOfSync(projector) && bypassOutOfSyncCheck == false {
-						// @todo report that projector is out of sync
+					outOfSyncBy, err := projectorRepository.OutOfSyncBy(*persistedProjector)
+					if err != nil {
+						logger.Error(err)
+						continue
+					}
+
+					// report if error is out of sync. Being out of sync by one is fine since we are about to process the event
+					if outOfSyncBy > 1 && bypassOutOfSyncCheck == false {
+						logger.Error(fmt.Errorf("projector '%s' is out of sync - tried to apply event with id '%s' with type '%s'", projector.Name(), esEvent.Name()))
 						continue
 					}
 
 					// handle event
 					err = projector.Handle(esEvent)
 					if err != nil {
-						// @todo report error?
-						panic(err)
+						logger.Error(err)
+						continue
 					}
 
 					// updated the last handled event on the projector
-					projectorRepository.UpdateLastHandledEvent(projector, *persistedEvent)
+					err = projectorRepository.UpdateLastHandledEvent(persistedProjector, *persistedEvent)
+					if err != nil {
+						logger.Error(err)
+					}
 
 				}
 
