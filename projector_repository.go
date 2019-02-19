@@ -1,5 +1,6 @@
 package es
 
+/**
 import (
 	"context"
 	"github.com/jinzhu/gorm"
@@ -11,10 +12,8 @@ type ProjectorRepository struct {
 	db *mongo.Database
 }
 
-func (r *ProjectorRepository) outOfSyncQuery(projector Projector) *gorm.DB {
-
-	projectors := r.db.Collection("projectors")
-
+func (r *ProjectorRepository) outOfSyncQuery(projector Projector) nil {
+	return nil
 }
 
 func (r *ProjectorRepository) OutOfSyncBy(projector Projector) (uint, error) {
@@ -61,3 +60,6 @@ func (r *ProjectorRepository) UpdateLastHandledEvent(projector *Projector, event
 func NewProjectorRepository(db *gorm.DB) *ProjectorRepository {
 
 }
+
+
+*/

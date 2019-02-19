@@ -3,12 +3,13 @@ package es
 import (
 	"errors"
 	"fmt"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"time"
 )
 
 type addProcessedListener struct {
 	listener chan struct{}
-	eventID  uint64
+	eventID  primitive.ObjectID
 }
 
 type EventSourcing struct {
@@ -37,7 +38,7 @@ func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 	if onProcessed != nil {
 		es.addProcessedListenerChan <- addProcessedListener{
 			listener: onProcessed,
-			eventID:  eventToPersist.ID,
+			eventID:  *eventToPersist.ID,
 		}
 	}
 
@@ -67,7 +68,7 @@ func NewEventSourcing(eventRepository IEventRepository, mb IMessageBus, logger I
 		subscriber := mb.Subscribe("event:processed")
 
 		// processed event listeners
-		processedEventListeners := map[uint64]chan struct{}{}
+		processedEventListeners := map[string]chan struct{}{}
 
 		for {
 
@@ -77,7 +78,7 @@ func NewEventSourcing(eventRepository IEventRepository, mb IMessageBus, logger I
 			case value := <-subscriber:
 
 				// cast to event
-				eventID, k := value.(uint64)
+				eventID, k := value.(primitive.ObjectID)
 				if !k {
 					logger.Error(errors.New("didn't receive an event id"))
 					continue
@@ -91,9 +92,9 @@ func NewEventSourcing(eventRepository IEventRepository, mb IMessageBus, logger I
 				}
 
 				// fetch listener
-				listener, exists := processedEventListeners[eventID]
+				listener, exists := processedEventListeners[eventID.Hex()]
 				if exists {
-					processedEventListeners[event.ID] = nil
+					delete(processedEventListeners, event.ID.Hex())
 					// notify listener that the event got processed
 					listener <- struct{}{}
 				}
@@ -102,14 +103,14 @@ func NewEventSourcing(eventRepository IEventRepository, mb IMessageBus, logger I
 			case eventProcessedListener := <-addProcessedListenerChan:
 
 				// make sure listener was not added before
-				_, exists := processedEventListeners[eventProcessedListener.eventID]
+				_, exists := processedEventListeners[eventProcessedListener.eventID.Hex()]
 				if exists {
 					logger.Error(fmt.Errorf("listener for event id '%s' already added", eventProcessedListener.eventID))
 					continue
 				}
 
 				// add listener
-				processedEventListeners[eventProcessedListener.eventID] = eventProcessedListener.listener
+				processedEventListeners[eventProcessedListener.eventID.Hex()] = eventProcessedListener.listener
 
 			// break the loop and kill to go routine
 			case <-closeChan:

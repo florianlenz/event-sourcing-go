@@ -8,7 +8,7 @@ import (
 type Processor struct {
 	msgBus              IMessageBus
 	stop                chan struct{}
-	projectorRegistry   *Registry
+	projectorRegistry   *projectorRegistry
 	projectorRepository IProjectorRepository
 }
 
@@ -18,8 +18,8 @@ func (p *Processor) Stop() {
 
 func NewSynchronousProcessor(
 	msgBus IMessageBus,
-	projectorRegistry *Registry,
-	eventRegistry *Registry,
+	projectorRegistry *projectorRegistry,
+	eventRegistry *eventRegistry,
 	projectorRepository IProjectorRepository,
 	eventRepository IEventRepository,
 	logger ILogger,
@@ -104,7 +104,7 @@ func NewSynchronousProcessor(
 					}
 
 					// updated the last handled event on the projector
-					err = projectorRepository.UpdateLastHandledEvent(persistedProjector, *persistedEvent)
+					err = projectorRepository.UpdateLastHandledEvent(persistedProjector, persistedEvent)
 					if err != nil {
 						logger.Error(err)
 					}
