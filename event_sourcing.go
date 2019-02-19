@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
+	"github.com/mongodb/mongo-go-driver/mongo"
 	"time"
 )
 
@@ -13,7 +14,7 @@ type addProcessedListener struct {
 }
 
 type EventSourcing struct {
-	eventRepository          IEventRepository
+	eventRepository          iEventRepository
 	messageBus               IMessageBus
 	addProcessedListenerChan chan addProcessedListener
 	close                    chan struct{}
@@ -49,10 +50,12 @@ func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 
 }
 
-func NewEventSourcing(eventRepository IEventRepository, mb IMessageBus, logger ILogger) *EventSourcing {
+func NewEventSourcing(mb IMessageBus, logger ILogger, db *mongo.Database) *EventSourcing {
 
 	addProcessedListenerChan := make(chan addProcessedListener)
 	closeChan := make(chan struct{})
+
+	eventRepository := newEventRepository(db)
 
 	es := &EventSourcing{
 		eventRepository:          eventRepository,

@@ -9,7 +9,7 @@ type Processor struct {
 	msgBus              IMessageBus
 	stop                chan struct{}
 	projectorRegistry   *projectorRegistry
-	projectorRepository IProjectorRepository
+	projectorRepository iProjectorRepository
 }
 
 func (p *Processor) Stop() {
@@ -20,8 +20,8 @@ func NewSynchronousProcessor(
 	msgBus IMessageBus,
 	projectorRegistry *projectorRegistry,
 	eventRegistry *eventRegistry,
-	projectorRepository IProjectorRepository,
-	eventRepository IEventRepository,
+	projectorRepository iProjectorRepository,
+	eventRepository iEventRepository,
 	logger ILogger,
 	bypassOutOfSyncCheck bool) *Processor {
 
@@ -76,15 +76,8 @@ func NewSynchronousProcessor(
 				projectors := projectorRegistry.ProjectorsForEvent(esEvent)
 				for _, projector := range projectors {
 
-					// fetch projector
-					persistedProjector, err := projectorRepository.GetOrCreateProjector(projector)
-					if err != nil {
-						logger.Error(err)
-						continue
-					}
-
 					// make sure that the projector is not out of sync
-					outOfSyncBy, err := projectorRepository.OutOfSyncBy(*persistedProjector)
+					outOfSyncBy, err := projectorRepository.OutOfSyncBy(projector)
 					if err != nil {
 						logger.Error(err)
 						continue
@@ -104,7 +97,7 @@ func NewSynchronousProcessor(
 					}
 
 					// updated the last handled event on the projector
-					err = projectorRepository.UpdateLastHandledEvent(persistedProjector, persistedEvent)
+					err = projectorRepository.UpdateLastHandledEvent(projector, persistedEvent)
 					if err != nil {
 						logger.Error(err)
 					}
