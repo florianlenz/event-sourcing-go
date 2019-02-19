@@ -1,4 +1,4 @@
-package msgbus
+package es
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestSpec(t *testing.T) {
+func TestMemeoryMessageBus(t *testing.T) {
 
 	Convey("memory message bus", t, func() {
 

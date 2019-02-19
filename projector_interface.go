@@ -1,12 +1,10 @@
-package projector
-
-import "es/event"
+package es
 
 type IProjector interface {
 	// unique name of the projector
 	Name() string
 	// return the events the projector is interested in
-	InterestedInEvents() []event.IESEvent
+	InterestedInEvents() []IESEvent
 	// handle a given event sourcing event
-	Handle(event event.IESEvent) error
+	Handle(event IESEvent) error
 }

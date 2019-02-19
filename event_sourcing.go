@@ -1,8 +1,8 @@
 package es
 
 import (
-	e "es/event"
-	mb "es/msgbus"
+	"errors"
+	"fmt"
 	"time"
 )
 
@@ -13,15 +13,15 @@ type addProcessedListener struct {
 
 type EventSourcing struct {
 	eventRepository          IEventRepository
-	messageBus               mb.IMessageBus
+	messageBus               IMessageBus
 	addProcessedListenerChan chan addProcessedListener
 	close                    chan struct{}
 }
 
-func (es *EventSourcing) Commit(e e.IESEvent, onProcessed chan struct{}) error {
+func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 
 	// new event
-	eventToPersist := &Event{
+	eventToPersist := &event{
 		Name:       e.Name(),
 		Payload:    e.Payload(),
 		Version:    e.Version(),
@@ -48,7 +48,7 @@ func (es *EventSourcing) Commit(e e.IESEvent, onProcessed chan struct{}) error {
 
 }
 
-func New(eventRepository IEventRepository, mb mb.IMessageBus) *EventSourcing {
+func NewEventSourcing(eventRepository IEventRepository, mb IMessageBus, logger ILogger) *EventSourcing {
 
 	addProcessedListenerChan := make(chan addProcessedListener)
 	closeChan := make(chan struct{})
@@ -77,14 +77,21 @@ func New(eventRepository IEventRepository, mb mb.IMessageBus) *EventSourcing {
 			case value := <-subscriber:
 
 				// cast to event
-				event, k := value.(Event)
+				eventID, k := value.(uint64)
 				if !k {
-					// @todo log
-					panic("event is not an persisted event")
+					logger.Error(errors.New("didn't receive an event id"))
+					continue
+				}
+
+				// event
+				event, err := eventRepository.FetchByID(eventID)
+				if err != nil {
+					logger.Error(err)
+					continue
 				}
 
 				// fetch listener
-				listener, exists := processedEventListeners[event.ID]
+				listener, exists := processedEventListeners[eventID]
 				if exists {
 					processedEventListeners[event.ID] = nil
 					// notify listener that the event got processed
@@ -97,7 +104,8 @@ func New(eventRepository IEventRepository, mb mb.IMessageBus) *EventSourcing {
 				// make sure listener was not added before
 				_, exists := processedEventListeners[eventProcessedListener.eventID]
 				if exists {
-					panic("event listener already added for event id - this shouldn't happen")
+					logger.Error(fmt.Errorf("listener for event id '%s' already added", eventProcessedListener.eventID))
+					continue
 				}
 
 				// add listener

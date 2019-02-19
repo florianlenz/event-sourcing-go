@@ -1,4 +1,4 @@
-package projector_registry
+package es
 
 import "es/event"
 

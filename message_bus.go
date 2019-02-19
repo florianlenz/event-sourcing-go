@@ -1,10 +1,10 @@
-package msgbus
+package es
 
 type IMessageBus interface {
 	// emit event (send it to the message bus)
 	Emit(eventName string, payload interface{})
 	// subscribe to all events
-	Subscribe(eventName string) <-chan interface{}
+	Subscribe(eventName string) Subscription
 	// unsubscribe form event
-	Unsubscribe(subscription <-chan interface{})
+	Unsubscribe(subscription Subscription)
 }

@@ -1,17 +1,14 @@
-package consistent
+package es
 
 import (
-	"es"
-	er "es/event_registry"
-	mb "es/msgbus"
-	pr "es/projector_registry"
 	"fmt"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 type Processor struct {
-	msgBus              mb.IMessageBus
+	msgBus              IMessageBus
 	stop                chan struct{}
-	projectorRegistry   pr.Registry
+	projectorRegistry   *Registry
 	projectorRepository IProjectorRepository
 }
 
@@ -19,13 +16,13 @@ func (p *Processor) Stop() {
 	p.stop <- struct{}{}
 }
 
-func New(
-	msgBus mb.IMessageBus,
-	projectorRegistry pr.Registry,
-	eventRegistry er.Registry,
+func NewSynchronousProcessor(
+	msgBus IMessageBus,
+	projectorRegistry *Registry,
+	eventRegistry *Registry,
 	projectorRepository IProjectorRepository,
-	eventRepository es.IEventRepository,
-	logger es.ILogger,
+	eventRepository IEventRepository,
+	logger ILogger,
 	bypassOutOfSyncCheck bool) *Processor {
 
 	stop := make(chan struct{})
@@ -48,10 +45,17 @@ func New(
 			// handle occurred event
 			case value := <-occurredEventSubscriber:
 
-				// cast to event
-				eventID, k := value.(uint64)
+				// cast to event id
+				eventIDStr, k := value.(string)
 				if !k {
-					logger.Error(fmt.Errorf("expected to recevied event ID, received: '%v'", eventID))
+					logger.Error(fmt.Errorf("expected to recevied event ID, received: '%v'", eventIDStr))
+					continue
+				}
+
+				// decode object id
+				eventID, err := primitive.ObjectIDFromHex(eventIDStr)
+				if err != nil {
+					logger.Error(err)
 					continue
 				}
 
@@ -63,7 +67,7 @@ func New(
 				}
 
 				// transform persisted event to event sourcing event
-				esEvent, err := eventRegistry.EventToESEvent(*persistedEvent)
+				esEvent, err := eventRegistry.EventToESEvent(persistedEvent)
 				if err != nil {
 					logger.Error(err)
 					continue
@@ -88,7 +92,7 @@ func New(
 
 					// report if error is out of sync. Being out of sync by one is fine since we are about to process the event
 					if outOfSyncBy > 1 && bypassOutOfSyncCheck == false {
-						logger.Error(fmt.Errorf("projector '%s' is out of sync - tried to apply event with id '%s' with type '%s'", projector.Name(), esEvent.Name()))
+						logger.Error(fmt.Errorf("projector '%s' is out of sync - tried to apply event with name '%s'", projector.Name(), esEvent.Name()))
 						continue
 					}
 
@@ -112,7 +116,7 @@ func New(
 
 			// kill go routine
 			case <-stop:
-				msgBus.UnSubscribe(occurredEventSubscriber)
+				msgBus.Unsubscribe(occurredEventSubscriber)
 				break
 			}
 

@@ -1,36 +1,34 @@
-package event_registry
+package es
 
 import (
-	"es"
-	"es/event"
 	"fmt"
 )
 
 // will create an event from the payload. A factory is usually registered in the context of an event
-type EventFactory func(payload event.Payload) event.IESEvent
+type Factory func(payload Payload) IESEvent
 
 // registered event
 type registeredEvent struct {
-	event   event.IESEvent
-	factory EventFactory
+	event   IESEvent
+	factory Factory
 }
 
 type eventToESEvent struct {
-	event    es.Event
+	event    event
 	response chan struct {
-		esEvent event.IESEvent
+		esEvent IESEvent
 		error   error
 	}
 }
 
 // add event command for state container
 type addEvent struct {
-	event        event.IESEvent
-	eventFactory EventFactory
+	event        IESEvent
+	eventFactory Factory
 	response     chan error
 }
 
-func (r *Registry) RegisterEvent(event event.IESEvent, eventFactory EventFactory) error {
+func (r *Registry) RegisterEvent(event IESEvent, eventFactory Factory) error {
 
 	responseChan := make(chan error, 1)
 
@@ -44,11 +42,11 @@ func (r *Registry) RegisterEvent(event event.IESEvent, eventFactory EventFactory
 
 }
 
-func (r *Registry) EventToESEvent(e es.Event) (event.IESEvent, error) {
+func (r *Registry) EventToESEvent(e es.Event) (IESEvent, error) {
 
 	// response channel
 	responseChan := make(chan struct {
-		esEvent event.IESEvent
+		esEvent IESEvent
 		error   error
 	}, 1)
 
@@ -123,7 +121,7 @@ func New() *Registry {
 				registeredEvent, exists := registeredEvents[e.Name]
 				if !exists {
 					eventToESEvent.response <- struct {
-						esEvent event.IESEvent
+						esEvent IESEvent
 						error   error
 					}{esEvent: nil, error: fmt.Errorf("event with name '%s' hasn't been registered", e.Name)}
 					continue
@@ -135,7 +133,7 @@ func New() *Registry {
 				// this is a case that shouldn't happen
 				if esEvent.Name() != e.Name {
 					eventToESEvent.response <- struct {
-						esEvent event.IESEvent
+						esEvent IESEvent
 						error   error
 					}{esEvent: nil, error: fmt.Errorf("attention! the creation of an event with name '%s' resulted in the creation of an event with name: '%s'", e.Name, esEvent.Name())}
 					continue
@@ -143,7 +141,7 @@ func New() *Registry {
 
 				// send response back
 				eventToESEvent.response <- struct {
-					esEvent event.IESEvent
+					esEvent IESEvent
 					error   error
 				}{esEvent: esEvent, error: nil}
 

@@ -1,4 +1,4 @@
-package msgbus
+package es
 
 type emit struct {
 	eventName string
@@ -28,7 +28,7 @@ func (b *MemoryMessageBus) Emit(eventName string, payload interface{}) {
 	}
 }
 
-func (b *MemoryMessageBus) Subscribe(eventName string) <-chan interface{} {
+func (b *MemoryMessageBus) Subscribe(eventName string) Subscription {
 
 	responseChannel := make(chan Subscription, 1)
 

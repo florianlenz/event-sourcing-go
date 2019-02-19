@@ -1,4 +1,4 @@
-package event
+package es
 
 // event interface
 type IESEvent interface {

@@ -1,11 +1,11 @@
-package event
+package es
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
 
-func TestSpec(t *testing.T) {
+func TestPayload(t *testing.T) {
 
 	Convey("Test event payload", t, func() {
 

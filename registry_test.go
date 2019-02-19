@@ -1,8 +1,6 @@
-package event_registry
+package es
 
 import (
-	"es"
-	"es/event"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -22,13 +20,13 @@ func TestSpec(t *testing.T) {
 				}
 
 				// first attempt
-				err := registry.RegisterEvent(testEvent, func(payload event.Payload) event.IESEvent {
+				err := registry.RegisterEvent(testEvent, func(payload Payload) IESEvent {
 					return nil
 				})
 				So(err, ShouldBeNil)
 
 				// second attempt
-				err = registry.RegisterEvent(testEvent, func(payload event.Payload) event.IESEvent {
+				err = registry.RegisterEvent(testEvent, func(payload Payload) IESEvent {
 					return nil
 				})
 				So(err, ShouldBeError, "event with name 'user.registered' got already registered")
@@ -44,7 +42,7 @@ func TestSpec(t *testing.T) {
 				registry := New()
 
 				// register event
-				err := registry.RegisterEvent(testEvent, func(payload event.Payload) event.IESEvent {
+				err := registry.RegisterEvent(testEvent, func(payload Payload) IESEvent {
 					return nil
 				})
 				So(err, ShouldBeNil)
@@ -60,7 +58,7 @@ func TestSpec(t *testing.T) {
 				registry := New()
 
 				// register event
-				e, err := registry.EventToESEvent(es.Event{
+				e, err := registry.EventToESEvent(event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeError, "event with name 'user.created' hasn't been registered")
@@ -73,7 +71,7 @@ func TestSpec(t *testing.T) {
 				registry := New()
 
 				// register event
-				err := registry.RegisterEvent(testEvent{name: "user.created"}, func(payload event.Payload) event.IESEvent {
+				err := registry.RegisterEvent(testEvent{name: "user.created"}, func(payload Payload) IESEvent {
 					return testEvent{
 						name: "wrong.event_name",
 					}
@@ -81,7 +79,7 @@ func TestSpec(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
-				esEvent, err := registry.EventToESEvent(es.Event{
+				esEvent, err := registry.EventToESEvent(event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeError, "attention! the creation of an event with name 'user.created' resulted in the creation of an event with name: 'wrong.event_name'")
@@ -99,13 +97,13 @@ func TestSpec(t *testing.T) {
 				}
 
 				// register event
-				err := registry.RegisterEvent(testEvent{name: "user.created"}, func(payload event.Payload) event.IESEvent {
+				err := registry.RegisterEvent(testEvent{name: "user.created"}, func(payload Payload) IESEvent {
 					return esEvent
 				})
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
-				transformedEvent, err := registry.EventToESEvent(es.Event{
+				transformedEvent, err := registry.EventToESEvent(event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeNil)
