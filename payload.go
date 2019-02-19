@@ -1,20 +1,11 @@
 package es
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
 // event payload
 type Payload map[string]interface{}
-
-func (p *Payload) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p)
-}
-
-func (p *Payload) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, p)
-}
 
 // get string from payload
 func (p Payload) GetString(key string) (string, error) {
