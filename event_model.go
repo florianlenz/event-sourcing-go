@@ -5,7 +5,7 @@ import (
 )
 
 type event struct {
-	ID         *primitive.ObjectID `bson:"_id"`
+	ID         *primitive.ObjectID `bson:"_id,omitempty"`
 	Name       string              `bson:"name"`
 	Payload    Payload             `bson:"payload"`
 	Version    uint8               `bson:"version"`
