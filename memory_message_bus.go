@@ -13,12 +13,10 @@ type subscribe struct {
 type Subscription <-chan interface{}
 
 type MemoryMessageBus struct {
-	close              chan chan struct{}
+	close              chan struct{}
 	eventChannel       chan emit
 	subscribeChannel   chan subscribe
 	unsubscribeChannel chan Subscription
-	// DON'T mutate this property outside the go routine
-	subscriptions map[string][]chan interface{}
 }
 
 func (b *MemoryMessageBus) Emit(eventName string, payload interface{}) {
@@ -45,9 +43,7 @@ func (b *MemoryMessageBus) Unsubscribe(subscription Subscription) {
 }
 
 func (b *MemoryMessageBus) Close() {
-	closed := make(chan struct{}, 1)
-	b.close <- closed
-	<-closed
+	b.close <- struct{}{}
 }
 
 func NewMemoryMessageBus() *MemoryMessageBus {
@@ -55,18 +51,19 @@ func NewMemoryMessageBus() *MemoryMessageBus {
 	eventChannel := make(chan emit, 100)
 	subscribeChannel := make(chan subscribe)
 	unsubscribeChannel := make(chan Subscription)
-
-	// DON'T mutate outside of go routine
-	subscriptions := map[string][]chan interface{}{}
+	closeChannel := make(chan struct{})
 
 	bus := &MemoryMessageBus{
 		eventChannel:       eventChannel,
 		subscribeChannel:   subscribeChannel,
 		unsubscribeChannel: unsubscribeChannel,
-		subscriptions:      subscriptions,
+		// sync channel is chosen since we want to wait till the close "signal" is picked up
+		close: closeChannel,
 	}
 
 	go func() {
+
+		subscriptions := map[string][]chan interface{}{}
 
 		for {
 
@@ -107,7 +104,9 @@ func NewMemoryMessageBus() *MemoryMessageBus {
 					subscriptions[eventName] = newSubscriptionSet
 
 				}
-
+			case <-closeChannel:
+				// exit from loop which will close the go routine
+				return
 			}
 
 		}

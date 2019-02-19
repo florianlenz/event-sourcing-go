@@ -16,13 +16,13 @@ func TestMemeoryMessageBus(t *testing.T) {
 			bus := NewMemoryMessageBus()
 
 			// make sure that there are no subscriptions
-			So(bus.subscriptions["my:event"], ShouldHaveLength, 0)
+			subscription := bus.Subscribe("my:event")
 
-			// subscribe
-			bus.Subscribe("my:event")
+			// emit event
+			bus.Emit("my:event", "payload")
 
-			// there should be one subscription for my:event
-			So(bus.subscriptions["my:event"], ShouldHaveLength, 1)
+			// should receive payload if subscription is setup properly
+			So(<-subscription, ShouldEqual, "payload")
 
 		})
 
@@ -32,19 +32,32 @@ func TestMemeoryMessageBus(t *testing.T) {
 			bus := NewMemoryMessageBus()
 
 			// subscribe
-			subscription := bus.Subscribe("my:event")
+			firstSubscription := bus.Subscribe("my:event")
+			secondSubscription := bus.Subscribe("my:event")
 
-			// ensure the subscription got added
-			So(bus.subscriptions["my:event"], ShouldHaveLength, 1)
+			// emit test event
+			bus.Emit("my:event", "payload")
 
-			// unsubscribe
-			bus.Unsubscribe(subscription)
+			// ensure the subscriptions got added by sending events to them
+			So(<-firstSubscription, ShouldEqual, "payload")
+			So(<-secondSubscription, ShouldEqual, "payload")
 
-			// wait a bit till the go routine is synchronized
-			time.Sleep(time.Second)
+			// unsubscribe first subscription
+			bus.Unsubscribe(firstSubscription)
 
-			// ensure the subscription got removed
-			So(bus.subscriptions["my:event"], ShouldHaveLength, 0)
+			bus.Emit("my:event", "another-payload")
+
+			So(<-secondSubscription, ShouldEqual, "another-payload")
+
+			receivedFromFirstSubscription := false
+			select {
+			case <-firstSubscription:
+				receivedFromFirstSubscription = true
+			case <-time.After(time.Second):
+			}
+
+			// we should not receive something from the first subscription since unsubscribed from it
+			So(receivedFromFirstSubscription, ShouldBeFalse)
 
 		})
 
@@ -73,6 +86,38 @@ func TestMemeoryMessageBus(t *testing.T) {
 			case <-time.After(time.Second):
 			}
 			So(receivedOnThirdSubscription, ShouldBeFalse)
+
+		})
+
+		Convey("close", func() {
+
+			bus := NewMemoryMessageBus()
+
+			// subscribe
+			subscription := bus.Subscribe("my:event")
+
+			// emit event
+			bus.Emit("my:event", "payload")
+
+			// make sure that subscription is notified
+			So(<-subscription, ShouldEqual, "payload")
+
+			// close the message bus
+			bus.Close()
+
+			// send another event
+			bus.Emit("my:event", "another:payload")
+
+			receivedFromSubscription := false
+
+			select {
+			case <-subscription:
+				receivedFromSubscription = true
+			case <-time.After(time.Second):
+			}
+
+			// should have false since we closed to go routine, which means that no events are passed down anymore to the subscriptions
+			So(receivedFromSubscription, ShouldBeFalse)
 
 		})
 
