@@ -28,6 +28,16 @@ func TestProjectorRepository(t *testing.T) {
 			return db, err
 		}
 
+		var eventFactory = func(eventCollection *mongo.Collection, eventName string) primitive.ObjectID {
+			id, err := eventCollection.InsertOne(context.Background(), bson.M{
+				"name": eventName,
+			})
+			So(err, ShouldBeNil)
+			objId, k := id.InsertedID.(primitive.ObjectID)
+			So(k, ShouldBeTrue)
+			return objId
+		}
+
 		Convey("update last handled event", func() {
 
 			Convey("update should create record if it was never persisted before", func() {
@@ -66,7 +76,7 @@ func TestProjectorRepository(t *testing.T) {
 
 				// fetch projector manually
 				result := projectorCollection.FindOne(context.Background(), bson.M{
-					"projector_name": "com.projector",
+					"name": "com.projector",
 				})
 
 				// decode projector
@@ -193,6 +203,14 @@ func TestProjectorRepository(t *testing.T) {
 				eventCollection := db.Collection("events")
 				projectorCollection := db.Collection("projectors")
 
+				// create tests events
+				eventFactory(eventCollection, "user.created")
+				eventFactory(eventCollection, "user.updated")
+				eventFactory(eventCollection, "user.updated")
+				eventFactory(eventCollection, "user.updated")
+				eventFactory(eventCollection, "user.deleted")
+				eventFactory(eventCollection, "user.deleted")
+
 				// projector repository
 				projectorRepo := &projectorRepository{
 					eventCollection:     eventCollection,
@@ -200,13 +218,71 @@ func TestProjectorRepository(t *testing.T) {
 				}
 
 				outOfSyncBy, err := projectorRepo.OutOfSyncBy(&testProjector{
-					// @todo stopped here
+					name: "com.projector",
+					interestedInEvents: []IESEvent{
+						&testEvent{
+							name: "user.created",
+						},
+						&testEvent{
+							name: "user.updated",
+						},
+					},
 				})
 				So(err, ShouldBeNil)
+				So(outOfSyncBy, ShouldEqual, 4)
 
 			})
 
-			Convey("count unprocessed events", func() {
+			Convey("only unprocessed events", func() {
+
+				// create db
+				db, err := createDB()
+				So(err, ShouldBeNil)
+
+				// collections
+				eventCollection := db.Collection("events")
+				projectorCollection := db.Collection("projectors")
+
+				// create tests events
+				eventFactory(eventCollection, "user.created")
+				lastIndexedEventID := eventFactory(eventCollection, "user.created")
+				eventFactory(eventCollection, "user.updated")
+				eventFactory(eventCollection, "user.updated")
+				eventFactory(eventCollection, "user.updated")
+				eventFactory(eventCollection, "user.created")
+				eventFactory(eventCollection, "user.created")
+				eventFactory(eventCollection, "user.deleted")
+
+				// projector repository
+				projectorRepo := &projectorRepository{
+					eventCollection:     eventCollection,
+					projectorCollection: projectorCollection,
+				}
+
+				// test projector
+				proj := testProjector{
+					name: "com.projector",
+					interestedInEvents: []IESEvent{
+						&testEvent{
+							name: "user.created",
+						},
+						&testEvent{
+							name: "user.updated",
+						},
+					},
+				}
+
+				// update last handled event
+				err = projectorRepo.UpdateLastHandledEvent(&proj, event{
+					ID: &lastIndexedEventID,
+				})
+				So(err, ShouldBeNil)
+
+				// query for out of sync
+				outOfSyncBy, err := projectorRepo.OutOfSyncBy(&proj)
+				So(err, ShouldBeNil)
+				// expect to be 5 since two of the 7 events we are interested in already got processed
+				So(outOfSyncBy, ShouldEqual, 5)
 
 			})
 

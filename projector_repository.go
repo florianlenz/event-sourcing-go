@@ -29,7 +29,7 @@ func (r *projectorRepository) UpdateLastHandledEvent(projector IProjector, event
 
 	_, err := projectors.UpdateOne(
 		context.Background(),
-		bson.M{"projector_name": projector.Name()},
+		bson.M{"name": projector.Name()},
 		bson.M{
 			"$set": bson.M{
 				"last_processed_event": event.ID,
@@ -57,23 +57,30 @@ func (r *projectorRepository) OutOfSyncBy(p IProjector) (int64, error) {
 
 	fetchedProjector := &projector{}
 
-	if err := result.Decode(fetchedProjector); err != nil {
+	// decode fetched projector
+	err := result.Decode(fetchedProjector)
+	switch err {
+	case nil:
+		outOfSyncBy, err := r.eventCollection.Count(context.Background(), bson.M{
+			"name": bson.M{
+				"$in": eventNames,
+			},
+			"_id": bson.M{
+				"$gt": fetchedProjector.LastProcessedEvent,
+			},
+		})
+		return outOfSyncBy, err
+	case mongo.ErrNoDocuments:
+		outOfSyncBy, err := r.eventCollection.Count(context.Background(), bson.M{
+			"name": bson.M{
+				"$in": eventNames,
+			},
+		})
+		return outOfSyncBy, err
+	default:
 		return 0, err
 	}
 
-	// event collection
-	eventCollection := r.eventCollection
-
-	outOfSyncBy, err := eventCollection.Count(context.Background(), bson.M{
-		"name": bson.M{
-			"$in": eventNames,
-		},
-		"_id": bson.M{
-			"$gt": fetchedProjector.ID,
-		},
-	})
-
-	return outOfSyncBy, err
 }
 
 func newProjectorRepository(eventCollection, projectorCollection *mongo.Collection) *projectorRepository {
