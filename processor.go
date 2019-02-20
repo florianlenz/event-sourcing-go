@@ -51,6 +51,8 @@ func NewSynchronousProcessor(
 			// handle occurred event
 			case value := <-occurredEventSubscriber:
 
+				// @todo check if event already got handled
+
 				// mark event as processed
 				var processedEvent = func() {
 					msgBus.Emit("event:processed", value)
