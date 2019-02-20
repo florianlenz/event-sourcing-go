@@ -1,5 +1,8 @@
 package es
 
+import "github.com/mongodb/mongo-go-driver/bson/primitive"
+
+// test logger
 type testLogger struct {
 	errorChan chan error
 }
@@ -8,6 +11,7 @@ func (l *testLogger) Error(error error) {
 	l.errorChan <- error
 }
 
+// test event
 type testEvent struct {
 	name       string
 	payload    Payload
@@ -31,6 +35,7 @@ func (e testEvent) OccurredAt() int64 {
 	return e.occurredAt
 }
 
+// test projector
 type testProjector struct {
 	name               string
 	interestedInEvents []IESEvent
@@ -47,4 +52,32 @@ func (tp *testProjector) InterestedInEvents() []IESEvent {
 
 func (tp *testProjector) Handle(event IESEvent) error {
 	return tp.handleEvent(event)
+}
+
+// test event repository
+type testEventRepository struct {
+	save      func(event *event) error
+	fetchByID func(id primitive.ObjectID) (event, error)
+}
+
+func (r *testEventRepository) Save(event *event) error {
+	return r.save(event)
+}
+
+func (r *testEventRepository) FetchByID(id primitive.ObjectID) (event, error) {
+	return r.fetchByID(id)
+}
+
+// test projector repository
+type testProjectorRepository struct {
+	outOfSyncBy            func(projector IProjector) (int64, error)
+	updateLastHandledEvent func(projector IProjector, event event) error
+}
+
+func (r *testProjectorRepository) OutOfSyncBy(projector IProjector) (int64, error) {
+	return r.outOfSyncBy(projector)
+}
+
+func (r *testProjectorRepository) UpdateLastHandledEvent(projector IProjector, event event) error {
+	return r.updateLastHandledEvent(projector, event)
 }

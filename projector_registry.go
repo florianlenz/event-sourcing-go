@@ -43,7 +43,7 @@ func (r *projectorRegistry) ProjectorsForEvent(event IESEvent) []IProjector {
 
 }
 
-func New() *projectorRegistry {
+func newProjectorRegistry() *projectorRegistry {
 
 	registerProjectorChan := make(chan addProjector)
 

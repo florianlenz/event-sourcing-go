@@ -13,7 +13,7 @@ func TestProjectorRegistry(t *testing.T) {
 
 			Convey("should return error on attempt to register different events with the same name", func() {
 
-				registry := New()
+				registry := newProjectorRegistry()
 
 				// register the first time
 				err := registry.Register(&testProjector{
@@ -31,7 +31,7 @@ func TestProjectorRegistry(t *testing.T) {
 
 			Convey("register successfully", func() {
 
-				registry := New()
+				registry := newProjectorRegistry()
 
 				// register projector
 				// @todo it would be nice to do more assertions than just
@@ -48,7 +48,7 @@ func TestProjectorRegistry(t *testing.T) {
 
 			Convey("no projectors were registered for event", func() {
 
-				registry := New()
+				registry := newProjectorRegistry()
 
 				projectors := registry.ProjectorsForEvent(testEvent{
 					name: "user.registered",
@@ -93,7 +93,7 @@ func TestProjectorRegistry(t *testing.T) {
 					},
 				}
 
-				registry := New()
+				registry := newProjectorRegistry()
 
 				// register projector A
 				err := registry.Register(projectorA)
