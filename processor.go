@@ -76,17 +76,21 @@ func NewSynchronousProcessor(
 				projectors := projectorRegistry.ProjectorsForEvent(esEvent)
 				for _, projector := range projectors {
 
-					// make sure that the projector is not out of sync
-					outOfSyncBy, err := projectorRepository.OutOfSyncBy(projector)
-					if err != nil {
-						logger.Error(err)
-						continue
-					}
+					if !bypassOutOfSyncCheck {
 
-					// report if error is out of sync. Being out of sync by one is fine since we are about to process the event
-					if outOfSyncBy > 1 && bypassOutOfSyncCheck == false {
-						logger.Error(fmt.Errorf("projector '%s' is out of sync - tried to apply event with name '%s'", projector.Name(), esEvent.Name()))
-						continue
+						// make sure that the projector is not out of sync
+						outOfSyncBy, err := projectorRepository.OutOfSyncBy(projector)
+						if err != nil {
+							logger.Error(err)
+							continue
+						}
+
+						// report if error is out of sync. Being out of sync by one is fine since we are about to process the event
+						if outOfSyncBy > 1 {
+							logger.Error(fmt.Errorf("projector '%s' is out of sync - tried to apply event with name '%s'", projector.Name(), esEvent.Name()))
+							continue
+						}
+
 					}
 
 					// handle event
