@@ -288,6 +288,23 @@ func TestProjectorRepository(t *testing.T) {
 
 		})
 
+		Convey("test new projector repository", func() {
+
+			// create db
+			db, err := createDB()
+			So(err, ShouldBeNil)
+
+			// collections
+			eventCollection := db.Collection("events")
+			projectorCollection := db.Collection("projectors")
+
+			projectorRepo := newProjectorRepository(eventCollection, projectorCollection)
+
+			So(projectorRepo.eventCollection, ShouldEqual, eventCollection)
+			So(projectorRepo.projectorCollection, ShouldEqual, projectorCollection)
+
+		})
+
 	})
 
 }
