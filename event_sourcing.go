@@ -1,23 +1,14 @@
 package es
 
 import (
-	"errors"
-	"fmt"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"time"
 )
 
-type addProcessedListener struct {
-	listener chan struct{}
-	eventID  primitive.ObjectID
-}
-
 type EventSourcing struct {
-	eventRepository          iEventRepository
-	messageBus               IMessageBus
-	addProcessedListenerChan chan addProcessedListener
-	close                    chan struct{}
+	eventRepository iEventRepository
+	close           chan struct{}
+	processor       *Processor
 }
 
 func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
@@ -35,34 +26,42 @@ func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 		return err
 	}
 
-	// add processed listener
-	if onProcessed != nil {
-		es.addProcessedListenerChan <- addProcessedListener{
-			listener: onProcessed,
-			eventID:  *eventToPersist.ID,
-		}
-	}
-
-	// send event to message bus
-	es.messageBus.Emit("event:occurred", eventToPersist.ID)
+	// send event id to processor
+	go func() {
+		// wait till event got processed
+		<-es.processor.Process(*eventToPersist.ID)
+		// send processed signal to the passed onProcessed channel
+		onProcessed <- struct{}{}
+	}()
 
 	return nil
 
 }
 
-func NewEventSourcing(mb IMessageBus, logger ILogger, db *mongo.Database) *EventSourcing {
+func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *projectorRegistry, eventRegistry *eventRegistry) *EventSourcing {
 
-	addProcessedListenerChan := make(chan addProcessedListener)
 	closeChan := make(chan struct{})
 
-	eventRepository := newEventRepository(db)
+	// collections
+	eventCollection := db.Collection("events")
+	projectorCollection := db.Collection("projectors")
+
+	// repos
+	eventRepository := newEventRepository(eventCollection)
+	projectorRepository := newProjectorRepository(eventCollection, projectorCollection)
+
+	// processor
+	processor := newProcessor(projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, false)
 
 	es := &EventSourcing{
-		eventRepository:          eventRepository,
-		messageBus:               mb,
-		addProcessedListenerChan: addProcessedListenerChan,
-		close:                    closeChan,
+		eventRepository: eventRepository,
+		close:           closeChan,
+		processor:       processor,
 	}
+
+	/**
+	This was ment to be used in case that there is a message bus that is communicating between the processor and the emitted events.
+	This is right now not the case so it's commented. When we bring back the message bus we can use this again
 
 	// event store state machine
 	go func() {
@@ -117,12 +116,14 @@ func NewEventSourcing(mb IMessageBus, logger ILogger, db *mongo.Database) *Event
 
 			// break the loop and kill to go routine
 			case <-closeChan:
-				break
+				return
 			}
 
 		}
 
 	}()
+
+	*/
 
 	return es
 
