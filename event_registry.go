@@ -130,6 +130,15 @@ func newEventRegistry() *eventRegistry {
 				// create event from payload
 				esEvent := registeredEvent.factory(e.Payload)
 
+				// exit if invalid event is returned
+				if esEvent == nil {
+					eventToESEvent.response <- struct {
+						esEvent IESEvent
+						error   error
+					}{esEvent: nil, error: fmt.Errorf("received nil from event factory - for event: %s", e.Name)}
+					continue
+				}
+
 				// this is a case that shouldn't happen
 				if esEvent.Name() != e.Name {
 					eventToESEvent.response <- struct {
