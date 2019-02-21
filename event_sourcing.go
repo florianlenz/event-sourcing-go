@@ -26,13 +26,17 @@ func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 		return err
 	}
 
-	// send event id to processor
-	go func() {
-		// wait till event got processed
-		<-es.processor.Process(*eventToPersist.ID)
-		// send processed signal to the passed onProcessed channel
-		onProcessed <- struct{}{}
-	}()
+	// processed
+	processedChan := es.processor.Process(*eventToPersist.ID)
+
+	if onProcessed != nil {
+		go func() {
+			// wait till event got processed
+			<-processedChan
+			// send processed signal to the passed onProcessed channel
+			onProcessed <- struct{}{}
+		}()
+	}
 
 	return nil
 
@@ -58,6 +62,8 @@ func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *pro
 		close:           closeChan,
 		processor:       processor,
 	}
+
+	return es
 
 	/**
 	This was ment to be used in case that there is a message bus that is communicating between the processor and the emitted events.
@@ -124,7 +130,5 @@ func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *pro
 	}()
 
 	*/
-
-	return es
 
 }
