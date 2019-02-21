@@ -34,7 +34,7 @@ func (p *Processor) Process(eventID primitive.ObjectID) <-chan struct{} {
 
 }
 
-func NewSynchronousProcessor(
+func newProcessor(
 	projectorRegistry *projectorRegistry,
 	eventRegistry *eventRegistry,
 	projectorRepository iProjectorRepository,

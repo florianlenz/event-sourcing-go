@@ -49,10 +49,10 @@ func TestProcessor(t *testing.T) {
 
 		// create new event repository if no other got passed in
 		if eventRepository == nil {
-			eventRepository = newEventRepository(db)
+			eventRepository = newEventRepository(db.Collection("events"))
 		}
 
-		processor := NewSynchronousProcessor(projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, byPassOutOfSyncCheck)
+		processor := newProcessor(projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, byPassOutOfSyncCheck)
 
 		p := &processorTestSet{
 			processor:         processor,
