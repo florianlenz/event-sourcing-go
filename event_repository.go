@@ -13,19 +13,18 @@ type iEventRepository interface {
 	Save(event *event) error
 	// fetch event by it's id
 	FetchByID(id primitive.ObjectID) (event, error)
+	// map over all events
+	Map(cb func(eventID primitive.ObjectID)) error
 }
 
 type eventRepository struct {
-	db *mongo.Database
+	eventCollection *mongo.Collection
 }
 
 func (r *eventRepository) Save(event *event) error {
 
-	// events collection
-	events := r.db.Collection("events")
-
 	// insert the event
-	insertionResult, err := events.InsertOne(context.Background(), event)
+	insertionResult, err := r.eventCollection.InsertOne(context.Background(), event)
 	if err != nil {
 		return err
 	}
@@ -40,13 +39,34 @@ func (r *eventRepository) Save(event *event) error {
 	return err
 }
 
+func (r *eventRepository) Map(cb func(primitive.ObjectID)) error {
+
+	// create event cursor
+	cursor, err := r.eventCollection.Find(context.Background(), bson.M{})
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	// start iterating over the event
+	for cursor.Next(ctx) {
+		event := &event{}
+		// @todo would be better if we would receive only the id
+		if err := cursor.Decode(&event); err != nil {
+			return err
+		}
+		cb(*event.ID)
+	}
+
+	return cursor.Close(ctx)
+
+}
+
 func (r *eventRepository) FetchByID(id primitive.ObjectID) (event, error) {
 
-	// event collection
-	events := r.db.Collection("events")
-
 	// find event by it's id
-	result := events.FindOne(context.Background(), bson.M{"_id": id})
+	result := r.eventCollection.FindOne(context.Background(), bson.M{"_id": id})
 
 	// decode event
 	e := event{}
@@ -58,8 +78,8 @@ func (r *eventRepository) FetchByID(id primitive.ObjectID) (event, error) {
 
 }
 
-func newEventRepository(db *mongo.Database) *eventRepository {
+func newEventRepository(eventCollection *mongo.Collection) *eventRepository {
 	return &eventRepository{
-		db: db,
+		eventCollection: eventCollection,
 	}
 }

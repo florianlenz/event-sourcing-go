@@ -35,9 +35,7 @@ func TestEventRepository(t *testing.T) {
 				db, err := createDB()
 				So(err, ShouldBeNil)
 
-				eventRepository := eventRepository{
-					db: db,
-				}
+				eventRepository := newEventRepository(db.Collection("events"))
 
 				event := &event{
 					Name: "user.created",
@@ -64,9 +62,7 @@ func TestEventRepository(t *testing.T) {
 
 				eventID := primitive.NewObjectID()
 
-				eventRepository := eventRepository{
-					db: db,
-				}
+				eventRepository := newEventRepository(db.Collection("events"))
 
 				fetchedEvent, err := eventRepository.FetchByID(eventID)
 				So(err, ShouldBeError, "mongo: no documents in result")
@@ -80,9 +76,7 @@ func TestEventRepository(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				// event repo
-				eventRepository := eventRepository{
-					db: db,
-				}
+				eventRepository := newEventRepository(db.Collection("events"))
 
 				// event
 				e := &event{
@@ -105,6 +99,41 @@ func TestEventRepository(t *testing.T) {
 				So(*e, ShouldResemble, fetchedEvent)
 
 			})
+
+		})
+
+		Convey("map", func() {
+
+			// create db
+			db, err := createDB()
+			So(err, ShouldBeNil)
+
+			// create event repository
+			eventRepository := newEventRepository(db.Collection("events"))
+
+			// persist events
+			firstEvent := &event{}
+			So(eventRepository.Save(firstEvent), ShouldBeNil)
+
+			secondEvent := &event{}
+			So(eventRepository.Save(secondEvent), ShouldBeNil)
+
+			thirdEvent := &event{}
+			So(eventRepository.Save(thirdEvent), ShouldBeNil)
+
+			// mapped events channel
+			mappedEventsChannel := make(chan primitive.ObjectID, 5)
+
+			// map over persisted events
+			err = eventRepository.Map(func(id primitive.ObjectID) {
+				mappedEventsChannel <- id
+			})
+			So(err, ShouldBeNil)
+
+			// make sure events got mapped in thr right order
+			So(<-mappedEventsChannel, ShouldEqual, *firstEvent.ID)
+			So(<-mappedEventsChannel, ShouldEqual, *secondEvent.ID)
+			So(<-mappedEventsChannel, ShouldEqual, *thirdEvent.ID)
 
 		})
 
