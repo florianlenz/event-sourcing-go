@@ -27,7 +27,7 @@ func TestProcessor(t *testing.T) {
 		}
 
 		// create client
-		client, err := mongo.Connect(context.TODO(), "mongodb://test11:test11@ds141815.mlab.com:41815/godb")
+		client, err := mongo.Connect(context.TODO(), "mongodb://localhost:8034")
 		if err != nil {
 			return nil, err
 		}
