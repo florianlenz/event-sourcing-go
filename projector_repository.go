@@ -12,6 +12,8 @@ type iProjectorRepository interface {
 	OutOfSyncBy(projector IProjector) (int64, error)
 	// update the last handled event on the projector
 	UpdateLastHandledEvent(projector IProjector, event event) error
+	// drop projector collection
+	Drop() error
 }
 
 type projectorRepository struct {
@@ -40,6 +42,10 @@ func (r *projectorRepository) UpdateLastHandledEvent(projector IProjector, event
 
 	return err
 
+}
+
+func (r *projectorRepository) Drop() error {
+	return r.projectorCollection.Drop(context.Background())
 }
 
 func (r *projectorRepository) OutOfSyncBy(p IProjector) (int64, error) {

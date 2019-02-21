@@ -305,6 +305,40 @@ func TestProjectorRepository(t *testing.T) {
 
 		})
 
+		Convey("drop all projectors", func() {
+
+			// db
+			db, err := createDB()
+			So(err, ShouldBeNil)
+
+			projectorCollection := db.Collection("projectors")
+
+			// projector repository
+			projectorRepository := newProjectorRepository(db.Collection("events"), projectorCollection)
+
+			// insert test projectors
+			_, err = db.Collection("projectors").InsertMany(context.Background(), []interface{}{
+				bson.M{},
+				bson.M{},
+				bson.M{},
+			})
+			So(err, ShouldBeNil)
+
+			// make sure that the correct amount of projectors got inserted
+			projectorCount, err := projectorCollection.Count(context.Background(), bson.M{})
+			So(err, ShouldBeNil)
+			So(projectorCount, ShouldEqual, 3)
+
+			// drop whole collection
+			So(projectorRepository.Drop(), ShouldBeNil)
+
+			// ensure that there are no documents left in the collection
+			projectorCount, err = projectorCollection.Count(context.Background(), bson.M{})
+			So(err, ShouldBeNil)
+			So(projectorCount, ShouldEqual, 0)
+
+		})
+
 	})
 
 }
