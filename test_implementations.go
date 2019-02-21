@@ -58,6 +58,12 @@ func (tp *testProjector) Handle(event IESEvent) error {
 type testEventRepository struct {
 	save      func(event *event) error
 	fetchByID func(id primitive.ObjectID) (event, error)
+	cb        func(eventID primitive.ObjectID)
+}
+
+func (r testEventRepository) Map(cb func(eventID primitive.ObjectID)) error {
+	r.cb = cb
+	return nil
 }
 
 func (r *testEventRepository) Save(event *event) error {
@@ -72,6 +78,7 @@ func (r *testEventRepository) FetchByID(id primitive.ObjectID) (event, error) {
 type testProjectorRepository struct {
 	outOfSyncBy            func(projector IProjector) (int64, error)
 	updateLastHandledEvent func(projector IProjector, event event) error
+	drop                   func() error
 }
 
 func (r *testProjectorRepository) OutOfSyncBy(projector IProjector) (int64, error) {
@@ -80,4 +87,8 @@ func (r *testProjectorRepository) OutOfSyncBy(projector IProjector) (int64, erro
 
 func (r *testProjectorRepository) UpdateLastHandledEvent(projector IProjector, event event) error {
 	return r.updateLastHandledEvent(projector, event)
+}
+
+func (r *testProjectorRepository) Drop() error {
+	return r.drop()
 }
