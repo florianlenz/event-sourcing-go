@@ -13,7 +13,6 @@ import (
 func TestProcessor(t *testing.T) {
 
 	type processorTestSet struct {
-		msgBus            IMessageBus
 		processor         *Processor
 		logger            *testLogger
 		projectorRegistry *projectorRegistry
@@ -53,16 +52,12 @@ func TestProcessor(t *testing.T) {
 			eventRepository = newEventRepository(db)
 		}
 
-		// message bus
-		mb := NewMemoryMessageBus()
-
-		processor := NewSynchronousProcessor(mb, projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, byPassOutOfSyncCheck)
+		processor := NewSynchronousProcessor(projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, byPassOutOfSyncCheck)
 
 		p := &processorTestSet{
 			processor:         processor,
 			logger:            logger,
 			projectorRegistry: projectorRegistry,
-			msgBus:            mb,
 			eventRegistry:     eventRegistry,
 		}
 
@@ -71,54 +66,6 @@ func TestProcessor(t *testing.T) {
 	}
 
 	Convey("test processor", t, func() {
-
-		Convey("event id must be a string", func() {
-
-			// create new processor
-			processorTestSet, err := newProcessorTestSet(false, nil, nil)
-			So(err, ShouldBeNil)
-
-			// local variables
-			mb := processorTestSet.msgBus
-			logger := processorTestSet.logger
-
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
-
-			// emit event with invalid payload
-			mb.Emit("event:occurred", 2)
-
-			// we expect an error since the payload of "event:occurred" must be a string
-			So(<-logger.errorChan, ShouldBeError, "expected to received event ID, received: type: int value: 2")
-
-			// make sure event got marked as processed
-			So(<-eventProcessedSubscr, ShouldEqual, 2)
-
-		})
-
-		Convey("object id must be an object id as hex string", func() {
-
-			// create new processor
-			processorTestSet, err := newProcessorTestSet(false, nil, nil)
-			So(err, ShouldBeNil)
-
-			// local variables
-			mb := processorTestSet.msgBus
-			logger := processorTestSet.logger
-
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
-
-			// emit event with invalid payload
-			mb.Emit("event:occurred", "i-am-not-a-hex-string")
-
-			// we expect an error since the payload of "event:occurred" must also be a hex string
-			So(<-logger.errorChan, ShouldBeError, "it seems like: i-am-not-a-hex-string is not a valid hex string. Original error: encoding/hex: invalid byte: U+0069 'i'")
-
-			// make sure event got marked as processed
-			So(<-eventProcessedSubscr, ShouldEqual, "i-am-not-a-hex-string")
-
-		})
 
 		Convey("event must exist - the process should be aborted if it doesn't", func() {
 
@@ -138,20 +85,12 @@ func TestProcessor(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			// local variables
-			mb := processorTestSet.msgBus
 			logger := processorTestSet.logger
 
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
-
-			// emit event
-			mb.Emit("event:occurred", eventID.Hex())
+			processorTestSet.processor.Process(eventID)
 
 			// we expect an error since we instructed the mock to return an error
 			So(<-logger.errorChan, ShouldBeError, "failed to fetch event by it's id")
-
-			// make sure event got marked as processed
-			So(<-eventProcessedSubscr, ShouldEqual, eventID.Hex())
 
 			// make sure repository got called with the correct object id
 			So(<-repoCalledWith, ShouldEqual, eventID)
@@ -174,20 +113,13 @@ func TestProcessor(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			// local variables
-			mb := processorTestSet.msgBus
 			logger := processorTestSet.logger
 
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
-
-			// emit event
-			mb.Emit("event:occurred", eventID.Hex())
+			// process event
+			processorTestSet.processor.Process(eventID)
 
 			// we expect an error since the returned event from the event repo was never registered
 			So(<-logger.errorChan, ShouldBeError, "event with name 'unregistered.event' hasn't been registered")
-
-			// make sure event got marked as processed
-			So(<-eventProcessedSubscr, ShouldEqual, eventID.Hex())
 
 		})
 
@@ -240,17 +172,13 @@ func TestProcessor(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			// local variables
-			mb := processorTestSet.msgBus
 			logger := processorTestSet.logger
 
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
-
-			// emit event
-			mb.Emit("event:occurred", eventID.Hex())
+			//
+			onProcessed := processorTestSet.processor.Process(eventID)
 
 			// make sure event got marked as processed
-			So(<-eventProcessedSubscr, ShouldEqual, eventID.Hex())
+			So(<-onProcessed, ShouldResemble, struct{}{})
 
 			// expect error since we return greater than one from the out of sync method
 			So(<-logger.errorChan, ShouldBeError, "projector 'user.projector' is out of sync - tried to apply event with name 'user.registered'")
@@ -313,17 +241,13 @@ func TestProcessor(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			// local variables
-			mb := processorTestSet.msgBus
 			logger := processorTestSet.logger
 
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
-
-			// emit event
-			mb.Emit("event:occurred", eventID.Hex())
+			// process event
+			onProcessed := processorTestSet.processor.Process(eventID)
 
 			// make sure event got marked as processed
-			So(<-eventProcessedSubscr, ShouldEqual, eventID.Hex())
+			So(<-onProcessed, ShouldResemble, struct{}{})
 
 			// expect error returned from handler
 			So(<-logger.errorChan, ShouldBeError, "error during handling event")
@@ -377,17 +301,11 @@ func TestProcessor(t *testing.T) {
 			})
 			So(err, ShouldBeNil)
 
-			// local variables
-			mb := processorTestSet.msgBus
-
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
-
-			// emit event
-			mb.Emit("event:occurred", eventID.Hex())
+			// process event
+			onProcessed := processorTestSet.processor.Process(eventID)
 
 			// make sure event got marked as processed
-			So(<-eventProcessedSubscr, ShouldEqual, eventID.Hex())
+			So(<-onProcessed, ShouldResemble, struct{}{})
 
 			// make sure update method got called
 			So(<-updatedLastHandledEvent, ShouldResemble, struct{}{})
@@ -400,27 +318,24 @@ func TestProcessor(t *testing.T) {
 			processorTestSet, err := newProcessorTestSet(false, nil, nil)
 			So(err, ShouldBeNil)
 
-			// local variables
-			mb := processorTestSet.msgBus
-
-			// subscribed to event processed
-			eventProcessedSubscr := mb.Subscribe("event:processed")
+			// processor
+			processor := processorTestSet.processor
 
 			// emit event and wait till it got processed
-			mb.Emit("event:occurred", "event@1")
-			So(<-eventProcessedSubscr, ShouldEqual, "event@1")
+			onProcessedFirstEvent := processor.Process(primitive.ObjectID{})
+			So(<-onProcessedFirstEvent, ShouldResemble, struct{}{})
 
 			// emit event second time to make sure that the process really works
-			mb.Emit("event:occurred", "event@2")
-			So(<-eventProcessedSubscr, ShouldEqual, "event@2")
+			onProcessedSecondEvent := processor.Process(primitive.ObjectID{})
+			So(<-onProcessedSecondEvent, ShouldResemble, struct{}{})
 
 			// stop processor
 			processorTestSet.processor.Stop()
 
 			// emit event second time to make sure that the process really works
-			mb.Emit("event:occurred", "event@2")
+			onProcessedThirdEvent := processor.Process(primitive.ObjectID{})
 			select {
-			case <-eventProcessedSubscr:
+			case <-onProcessedThirdEvent:
 				panic("it seems like the processor is still running")
 			case <-time.After(time.Second):
 
