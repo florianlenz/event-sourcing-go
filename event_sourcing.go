@@ -42,6 +42,10 @@ func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 
 }
 
+func (es *EventSourcing) Start() {
+	es.processor.Start()
+}
+
 func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *ProjectorRegistry, eventRegistry *EventRegistry, reactorRegistry *ReactorRegistry) *EventSourcing {
 
 	closeChan := make(chan struct{})

@@ -10,6 +10,7 @@ type Processor struct {
 	projectorRegistry   *ProjectorRegistry
 	projectorRepository iProjectorRepository
 	eventQueue          chan processEvent
+	start               chan struct{}
 }
 
 type processEvent struct {
@@ -34,6 +35,12 @@ func (p *Processor) Process(eventID primitive.ObjectID) <-chan struct{} {
 
 }
 
+// The processor will only start to work once the start method got called
+// You can't call it twice and you can't call stop and then start again.
+func (p *Processor) Start() {
+	p.start <- struct{}{}
+}
+
 func newProcessor(
 	projectorRegistry *ProjectorRegistry,
 	eventRegistry *EventRegistry,
@@ -45,15 +52,21 @@ func newProcessor(
 
 	stop := make(chan struct{})
 	eventQueue := make(chan processEvent, 100)
+	start := make(chan struct{}, 1)
 
 	p := &Processor{
 		stop:                stop,
 		projectorRegistry:   projectorRegistry,
 		projectorRepository: projectorRepository,
 		eventQueue:          eventQueue,
+		start:               start,
 	}
 
 	go func() {
+
+		// wait for start signal
+		<-start
+		close(start)
 
 		for {
 

@@ -88,6 +88,7 @@ func TestProcessor(t *testing.T) {
 			// create new processor
 			processorTestSet, err := newProcessorTestSet(false, eventRepository, nil)
 			So(err, ShouldBeNil)
+			processorTestSet.processor.Start()
 
 			// local variables
 			logger := processorTestSet.logger
@@ -116,6 +117,7 @@ func TestProcessor(t *testing.T) {
 			// create new processor
 			processorTestSet, err := newProcessorTestSet(false, eventRepository, nil)
 			So(err, ShouldBeNil)
+			processorTestSet.processor.Start()
 
 			// local variables
 			logger := processorTestSet.logger
@@ -153,6 +155,7 @@ func TestProcessor(t *testing.T) {
 			// create new processor
 			processorTestSet, err := newProcessorTestSet(false, eventRepository, projectorRepository)
 			So(err, ShouldBeNil)
+			processorTestSet.processor.Start()
 
 			// register event
 			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.registered"}, func(payload Payload) IESEvent {
@@ -224,6 +227,7 @@ func TestProcessor(t *testing.T) {
 			// create new processor
 			processorTestSet, err := newProcessorTestSet(false, eventRepository, projectorRepository)
 			So(err, ShouldBeNil)
+			processorTestSet.processor.Start()
 
 			// register event
 			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.registered"}, func(payload Payload) IESEvent {
@@ -285,6 +289,7 @@ func TestProcessor(t *testing.T) {
 			// create new processor
 			processorTestSet, err := newProcessorTestSet(false, eventRepository, projectorRepository)
 			So(err, ShouldBeNil)
+			processorTestSet.processor.Start()
 
 			// register event
 			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.registered"}, func(payload Payload) IESEvent {
@@ -325,6 +330,7 @@ func TestProcessor(t *testing.T) {
 
 			// processor
 			processor := processorTestSet.processor
+			processor.Start()
 
 			// emit event and wait till it got processed
 			onProcessedFirstEvent := processor.Process(primitive.ObjectID{})
@@ -365,6 +371,7 @@ func TestProcessor(t *testing.T) {
 
 			// processor
 			processor := processorTestSet.processor
+			processor.Start()
 
 			// reactor registry
 			reactorRegistry := processorTestSet.reactorRegistry
@@ -411,6 +418,7 @@ func TestProcessor(t *testing.T) {
 
 			// processor
 			processor := processorTestSet.processor
+			processor.Start()
 
 			// reactor registry
 			reactorRegistry := processorTestSet.reactorRegistry
@@ -442,6 +450,30 @@ func TestProcessor(t *testing.T) {
 			case <-time.After(time.Second * 2):
 
 			}
+
+		})
+
+		Convey("start working only after the start signal", func() {
+
+			// create new processor
+			processorTestSet, err := newProcessorTestSet(true, nil, nil)
+			So(err, ShouldBeNil)
+
+			processor := processorTestSet.processor
+
+			eventID := primitive.ObjectID{}
+
+			onProcessed := processor.Process(eventID)
+
+			select {
+			case <-onProcessed:
+				panic("didn't expect event to be processed since we didn't start the processor")
+			case <-time.After(time.Second * 2):
+			}
+
+			processor.Start()
+
+			So(<-onProcessed, ShouldResemble, struct{}{})
 
 		})
 

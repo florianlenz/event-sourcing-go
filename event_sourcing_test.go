@@ -89,6 +89,7 @@ func TestEventSourcing(t *testing.T) {
 
 			// create event sourcing
 			es := NewEventSourcing(&testLogger{errorChan: make(chan error, 10)}, db, projectorRegistry, eventRegistry, NewReactorRegistry())
+			es.Start()
 
 			// on processed channel
 			onProcessed := make(chan struct{}, 1)
