@@ -36,7 +36,7 @@ func (p *Processor) Process(eventID primitive.ObjectID) <-chan struct{} {
 
 func newProcessor(
 	projectorRegistry *projectorRegistry,
-	eventRegistry *eventRegistry,
+	eventRegistry *EventRegistry,
 	reactorRegistry *ReactorRegistry,
 	projectorRepository iProjectorRepository,
 	eventRepository iEventRepository,

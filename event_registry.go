@@ -28,7 +28,7 @@ type addEvent struct {
 	response     chan error
 }
 
-func (r *eventRegistry) RegisterEvent(event IESEvent, eventFactory Factory) error {
+func (r *EventRegistry) RegisterEvent(event IESEvent, eventFactory Factory) error {
 
 	responseChan := make(chan error, 1)
 
@@ -42,7 +42,7 @@ func (r *eventRegistry) RegisterEvent(event IESEvent, eventFactory Factory) erro
 
 }
 
-func (r *eventRegistry) EventToESEvent(e event) (IESEvent, error) {
+func (r *EventRegistry) EventToESEvent(e event) (IESEvent, error) {
 
 	// response channel
 	responseChan := make(chan struct {
@@ -69,12 +69,12 @@ func (r *eventRegistry) EventToESEvent(e event) (IESEvent, error) {
 }
 
 // the public registry it self
-type eventRegistry struct {
+type EventRegistry struct {
 	addEvent       chan addEvent
 	eventToESEvent chan eventToESEvent
 }
 
-func newEventRegistry() *eventRegistry {
+func NewEventRegistry() *EventRegistry {
 
 	// register event over this channel
 	addEvent := make(chan addEvent)
@@ -82,7 +82,7 @@ func newEventRegistry() *eventRegistry {
 	eventToESEvent := make(chan eventToESEvent)
 
 	// event registry
-	reg := &eventRegistry{
+	reg := &EventRegistry{
 		addEvent:       addEvent,
 		eventToESEvent: eventToESEvent,
 	}

@@ -13,7 +13,7 @@ func TestSpec(t *testing.T) {
 
 			Convey("should return error on attempt to register an event with the same name twice", func() {
 
-				registry := newEventRegistry()
+				registry := NewEventRegistry()
 
 				testEvent := testEvent{
 					name: "user.registered",
@@ -39,7 +39,7 @@ func TestSpec(t *testing.T) {
 					name: "user.registered",
 				}
 
-				registry := newEventRegistry()
+				registry := NewEventRegistry()
 
 				// register event
 				err := registry.RegisterEvent(testEvent, func(payload Payload) IESEvent {
@@ -55,7 +55,7 @@ func TestSpec(t *testing.T) {
 
 			Convey("should return an error if the event hasn't been registered", func() {
 
-				registry := newEventRegistry()
+				registry := NewEventRegistry()
 
 				// register event
 				e, err := registry.EventToESEvent(event{
@@ -68,7 +68,7 @@ func TestSpec(t *testing.T) {
 
 			Convey("should return error if the transformed event is has a different name than the persisted event", func() {
 
-				registry := newEventRegistry()
+				registry := NewEventRegistry()
 
 				// register event
 				err := registry.RegisterEvent(testEvent{name: "user.created"}, func(payload Payload) IESEvent {
@@ -89,7 +89,7 @@ func TestSpec(t *testing.T) {
 
 			Convey("transform event successfully", func() {
 
-				registry := newEventRegistry()
+				registry := NewEventRegistry()
 
 				// test event
 				esEvent := &testEvent{
