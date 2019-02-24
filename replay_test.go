@@ -56,7 +56,7 @@ func TestReplay(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		// projector registry
-		projectorRegistry := newProjectorRegistry()
+		projectorRegistry := NewProjectorRegistry()
 
 		//  register test event
 		createdWithPayloadChan := make(chan map[string]interface{}, 2)

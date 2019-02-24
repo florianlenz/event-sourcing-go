@@ -15,7 +15,7 @@ func TestProcessor(t *testing.T) {
 	type processorTestSet struct {
 		processor         *Processor
 		logger            *testLogger
-		projectorRegistry *projectorRegistry
+		projectorRegistry *ProjectorRegistry
 		eventRegistry     *EventRegistry
 		reactorRegistry   *ReactorRegistry
 	}
@@ -38,7 +38,7 @@ func TestProcessor(t *testing.T) {
 		err = db.Drop(context.Background())
 
 		// projector registry
-		projectorRegistry := newProjectorRegistry()
+		projectorRegistry := NewProjectorRegistry()
 
 		// event registry
 		eventRegistry := NewEventRegistry()

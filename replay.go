@@ -5,7 +5,7 @@ import (
 	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
-func Replay(logger ILogger, db *mongo.Database, projectorRegistry *projectorRegistry, eventRegistry *EventRegistry) <-chan error {
+func Replay(logger ILogger, db *mongo.Database, projectorRegistry *ProjectorRegistry, eventRegistry *EventRegistry) <-chan error {
 
 	// collections
 	eventCollection := db.Collection("events")

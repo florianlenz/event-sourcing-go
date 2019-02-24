@@ -12,12 +12,12 @@ type queryProjectorsByEvent struct {
 	responseChan chan []IProjector
 }
 
-type projectorRegistry struct {
+type ProjectorRegistry struct {
 	addProjector           chan addProjector
 	queryProjectorsByEvent chan queryProjectorsByEvent
 }
 
-func (r *projectorRegistry) Register(projector IProjector) error {
+func (r *ProjectorRegistry) Register(projector IProjector) error {
 
 	respChan := make(chan error, 1)
 
@@ -30,7 +30,7 @@ func (r *projectorRegistry) Register(projector IProjector) error {
 
 }
 
-func (r *projectorRegistry) ProjectorsForEvent(event IESEvent) []IProjector {
+func (r *ProjectorRegistry) ProjectorsForEvent(event IESEvent) []IProjector {
 
 	responseChan := make(chan []IProjector)
 
@@ -43,13 +43,13 @@ func (r *projectorRegistry) ProjectorsForEvent(event IESEvent) []IProjector {
 
 }
 
-func newProjectorRegistry() *projectorRegistry {
+func NewProjectorRegistry() *ProjectorRegistry {
 
 	registerProjectorChan := make(chan addProjector)
 
 	queryProjectorsByEvent := make(chan queryProjectorsByEvent)
 
-	registry := &projectorRegistry{
+	registry := &ProjectorRegistry{
 		addProjector:           registerProjectorChan,
 		queryProjectorsByEvent: queryProjectorsByEvent,
 	}

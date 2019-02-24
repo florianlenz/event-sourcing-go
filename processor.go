@@ -7,7 +7,7 @@ import (
 
 type Processor struct {
 	stop                chan struct{}
-	projectorRegistry   *projectorRegistry
+	projectorRegistry   *ProjectorRegistry
 	projectorRepository iProjectorRepository
 	eventQueue          chan processEvent
 }
@@ -35,7 +35,7 @@ func (p *Processor) Process(eventID primitive.ObjectID) <-chan struct{} {
 }
 
 func newProcessor(
-	projectorRegistry *projectorRegistry,
+	projectorRegistry *ProjectorRegistry,
 	eventRegistry *EventRegistry,
 	reactorRegistry *ReactorRegistry,
 	projectorRepository iProjectorRepository,

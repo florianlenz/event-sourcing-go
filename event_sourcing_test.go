@@ -34,7 +34,7 @@ func TestEventSourcing(t *testing.T) {
 			db, err := createDB()
 			So(err, ShouldBeNil)
 
-			projectorRegistry := newProjectorRegistry()
+			projectorRegistry := NewProjectorRegistry()
 			eventRegistry := NewEventRegistry()
 
 			// persist event channel
@@ -79,7 +79,7 @@ func TestEventSourcing(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			// registries
-			projectorRegistry := newProjectorRegistry()
+			projectorRegistry := NewProjectorRegistry()
 			eventRegistry := NewEventRegistry()
 
 			// register test projector
