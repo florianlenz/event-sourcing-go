@@ -92,3 +92,17 @@ func (r *testProjectorRepository) UpdateLastHandledEvent(projector IProjector, e
 func (r *testProjectorRepository) Drop() error {
 	return r.drop()
 }
+
+// test reactor
+type testReactor struct {
+	handle  func(event IESEvent)
+	onEvent string
+}
+
+func (r *testReactor) Handle(event IESEvent) {
+	r.handle(event)
+}
+
+func (r *testReactor) OnEvent() string {
+	return r.onEvent
+}
