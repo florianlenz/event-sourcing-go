@@ -1,5 +1,6 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/florianlenz/event-sourcing-go v0.0.0-20190224215136-037763442d9d/go.mod h1:Sc8Tej5b+2cOxPAMsUGxvX7djuC9hOLeZ16zijDhx2o=
 github.com/go-stack/stack v1.8.0 h1:5SgMzNM5HxrEjV0ww2lTmX6E2Izsfxas4+YHWRs3Lsk=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/golang/snappy v0.0.0-20190218232222-2a8bb927dd31 h1:L7s4Kab5p6uNwbGGZl4w9VkSTmzHSLkP8w/xCbYEWOo=
