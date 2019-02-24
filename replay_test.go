@@ -60,7 +60,7 @@ func TestReplay(t *testing.T) {
 
 		//  register test event
 		createdWithPayloadChan := make(chan map[string]interface{}, 2)
-		eventRegistry := newEventRegistry()
+		eventRegistry := NewEventRegistry()
 		err = eventRegistry.RegisterEvent(testEvent{name: "user.registered"}, func(payload Payload) IESEvent {
 			createdWithPayloadChan <- payload
 			return nil

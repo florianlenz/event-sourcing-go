@@ -16,7 +16,7 @@ func TestProcessor(t *testing.T) {
 		processor         *Processor
 		logger            *testLogger
 		projectorRegistry *projectorRegistry
-		eventRegistry     *eventRegistry
+		eventRegistry     *EventRegistry
 		reactorRegistry   *ReactorRegistry
 	}
 
@@ -41,7 +41,7 @@ func TestProcessor(t *testing.T) {
 		projectorRegistry := newProjectorRegistry()
 
 		// event registry
-		eventRegistry := newEventRegistry()
+		eventRegistry := NewEventRegistry()
 
 		//  reactor registry
 		reactorRegistry := NewReactorRegistry()
