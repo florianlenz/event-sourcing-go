@@ -17,9 +17,10 @@ func TestProcessor(t *testing.T) {
 		logger            *testLogger
 		projectorRegistry *projectorRegistry
 		eventRegistry     *eventRegistry
+		reactorRegistry   *reactorRegistry
 	}
 
-	var newProcessorTestSet = func(byPassOutOfSyncCheck bool, eventRepository iEventRepository, projectorRepository iProjectorRepository) (*processorTestSet, error) {
+	var newProcessorTestSet = func(replay bool, eventRepository iEventRepository, projectorRepository iProjectorRepository) (*processorTestSet, error) {
 
 		// logger
 		logger := &testLogger{
@@ -42,6 +43,9 @@ func TestProcessor(t *testing.T) {
 		// event registry
 		eventRegistry := newEventRegistry()
 
+		//  reactor registry
+		reactorRegistry := newReactorRegistry()
+
 		// projector repository
 		if projectorRepository == nil {
 			projectorRepository = newProjectorRepository(db.Collection("events"), db.Collection("projectors"))
@@ -52,13 +56,14 @@ func TestProcessor(t *testing.T) {
 			eventRepository = newEventRepository(db.Collection("events"))
 		}
 
-		processor := newProcessor(projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, byPassOutOfSyncCheck)
+		processor := newProcessor(projectorRegistry, eventRegistry, reactorRegistry, projectorRepository, eventRepository, logger, replay)
 
 		p := &processorTestSet{
 			processor:         processor,
 			logger:            logger,
 			projectorRegistry: projectorRegistry,
 			eventRegistry:     eventRegistry,
+			reactorRegistry:   reactorRegistry,
 		}
 
 		return p, nil
@@ -338,6 +343,103 @@ func TestProcessor(t *testing.T) {
 			case <-onProcessedThirdEvent:
 				panic("it seems like the processor is still running")
 			case <-time.After(time.Second):
+
+			}
+
+		})
+
+		Convey("should react on event", func() {
+
+			// mock event repository
+			eventRepo := &testEventRepository{
+				fetchByID: func(id primitive.ObjectID) (event, error) {
+					return event{
+						Name: "user.created",
+					}, nil
+				},
+			}
+
+			// create new processor
+			processorTestSet, err := newProcessorTestSet(false, eventRepo, nil)
+			So(err, ShouldBeNil)
+
+			// processor
+			processor := processorTestSet.processor
+
+			// reactor registry
+			reactorRegistry := processorTestSet.reactorRegistry
+
+			// register event
+			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.created"}, func(payload Payload) IESEvent {
+				return testEvent{
+					name: "user.created",
+				}
+			})
+			So(err, ShouldBeNil)
+
+			// register event
+			calledReactor := make(chan struct{}, 1)
+			reactorRegistry.Register(&testReactor{
+				handle: func(event IESEvent) {
+					calledReactor <- struct{}{}
+				},
+				onEvent: "user.created",
+			})
+
+			// process
+			processor.Process(primitive.ObjectID{})
+
+			// ensure that reactor got called
+			So(<-calledReactor, ShouldResemble, struct{}{})
+
+		})
+
+		Convey("should not react on events when replaying", func() {
+
+			// mock event repository
+			eventRepo := &testEventRepository{
+				fetchByID: func(id primitive.ObjectID) (event, error) {
+					return event{
+						Name: "user.created",
+					}, nil
+				},
+			}
+
+			// create new processor
+			processorTestSet, err := newProcessorTestSet(true, eventRepo, nil)
+			So(err, ShouldBeNil)
+
+			// processor
+			processor := processorTestSet.processor
+
+			// reactor registry
+			reactorRegistry := processorTestSet.reactorRegistry
+
+			// register event
+			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.created"}, func(payload Payload) IESEvent {
+				return testEvent{
+					name: "user.created",
+				}
+			})
+			So(err, ShouldBeNil)
+
+			// register event
+			calledReactor := make(chan struct{}, 1)
+			reactorRegistry.Register(&testReactor{
+				handle: func(event IESEvent) {
+					calledReactor <- struct{}{}
+				},
+				onEvent: "user.created",
+			})
+
+			// process and wait till done
+			<-processor.Process(primitive.ObjectID{})
+
+			// ensure that reactor got called
+			select {
+			case <-calledReactor:
+				panic("called reactor")
+			case <-time.After(time.Second * 2):
 
 			}
 

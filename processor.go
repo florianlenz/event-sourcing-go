@@ -37,11 +37,11 @@ func (p *Processor) Process(eventID primitive.ObjectID) <-chan struct{} {
 func newProcessor(
 	projectorRegistry *projectorRegistry,
 	eventRegistry *eventRegistry,
+	reactorRegistry *reactorRegistry,
 	projectorRepository iProjectorRepository,
 	eventRepository iEventRepository,
 	logger ILogger,
-	// @todo maybe add check if projectors are empty in case this is true
-	bypassOutOfSyncCheck bool) *Processor {
+	replay bool) *Processor {
 
 	stop := make(chan struct{})
 	eventQueue := make(chan processEvent, 100)
@@ -83,10 +83,11 @@ func newProcessor(
 					continue
 				}
 
+				// project event
 				projectors := projectorRegistry.ProjectorsForEvent(esEvent)
 				for _, projector := range projectors {
 
-					if !bypassOutOfSyncCheck {
+					if !replay {
 
 						// make sure that the projector is not out of sync
 						outOfSyncBy, err := projectorRepository.OutOfSyncBy(projector)
@@ -113,6 +114,16 @@ func newProcessor(
 					err = projectorRepository.UpdateLastHandledEvent(projector, persistedEvent)
 					if err != nil {
 						logger.Error(err)
+					}
+
+				}
+
+				// pass event to reactors
+				if !replay {
+					reactors := reactorRegistry.ForEvent(esEvent)
+
+					for _, reactor := range reactors {
+						reactor.Handle(esEvent)
 					}
 
 				}

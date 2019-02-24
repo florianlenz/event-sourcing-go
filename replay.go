@@ -17,8 +17,8 @@ func Replay(logger ILogger, db *mongo.Database, projectorRegistry *projectorRegi
 
 	done := make(chan error, 1)
 
-	// processor
-	processor := newProcessor(projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, true)
+	// processor (nill is passed for the reactor registry since we don't need it when we replay)
+	processor := newProcessor(projectorRegistry, eventRegistry, nil, projectorRepository, eventRepository, logger, true)
 
 	// drop all projectors
 	if err := projectorRepository.Drop(); err != nil {

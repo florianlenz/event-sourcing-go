@@ -42,7 +42,7 @@ func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 
 }
 
-func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *projectorRegistry, eventRegistry *eventRegistry) *EventSourcing {
+func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *projectorRegistry, eventRegistry *eventRegistry, reactorRegistry *reactorRegistry) *EventSourcing {
 
 	closeChan := make(chan struct{})
 
@@ -55,7 +55,7 @@ func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *pro
 	projectorRepository := newProjectorRepository(eventCollection, projectorCollection)
 
 	// processor
-	processor := newProcessor(projectorRegistry, eventRegistry, projectorRepository, eventRepository, logger, false)
+	processor := newProcessor(projectorRegistry, eventRegistry, reactorRegistry, projectorRepository, eventRepository, logger, false)
 
 	es := &EventSourcing{
 		eventRepository: eventRepository,
