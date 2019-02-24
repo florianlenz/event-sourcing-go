@@ -6,7 +6,7 @@ type IReactor interface {
 	OnEvent() string
 }
 
-type reactorRegistry struct {
+type ReactorRegistry struct {
 	registerReactorChannel       chan IReactor
 	fetchReactorsForEventChannel chan fetchReactorsForEvent
 }
@@ -22,12 +22,12 @@ type fetchReactorsForEvent struct {
 }
 
 // Register a new reactor
-func (r *reactorRegistry) Register(reactor IReactor) {
+func (r *ReactorRegistry) Register(reactor IReactor) {
 	r.registerReactorChannel <- reactor
 }
 
 // Fetch reactors for event
-func (r *reactorRegistry) ForEvent(event IESEvent) []IReactor {
+func (r *ReactorRegistry) ForEvent(event IESEvent) []IReactor {
 
 	response := make(chan []IReactor, 1)
 
@@ -40,12 +40,12 @@ func (r *reactorRegistry) ForEvent(event IESEvent) []IReactor {
 
 }
 
-func newReactorRegistry() *reactorRegistry {
+func NewReactorRegistry() *ReactorRegistry {
 
 	registerReactorChannel := make(chan IReactor)
 	fetchReactorsForEventChannel := make(chan fetchReactorsForEvent)
 
-	r := &reactorRegistry{
+	r := &ReactorRegistry{
 		registerReactorChannel:       registerReactorChannel,
 		fetchReactorsForEventChannel: fetchReactorsForEventChannel,
 	}

@@ -9,7 +9,7 @@ func TestReactorRegistry(t *testing.T) {
 
 	Convey("reactor registry", t, func() {
 
-		rr := newReactorRegistry()
+		rr := NewReactorRegistry()
 
 		reactor := &testReactor{
 			onEvent: "user.created",

@@ -41,7 +41,7 @@ func TestEventSourcing(t *testing.T) {
 			persistedEventChan := make(chan *event, 1)
 
 			// create event sourcing
-			es := NewEventSourcing(nil, db, projectorRegistry, eventRegistry, newReactorRegistry())
+			es := NewEventSourcing(nil, db, projectorRegistry, eventRegistry, NewReactorRegistry())
 			es.eventRepository = &testEventRepository{
 				save: func(event *event) error {
 					persistedEventChan <- event
@@ -88,7 +88,7 @@ func TestEventSourcing(t *testing.T) {
 			})
 
 			// create event sourcing
-			es := NewEventSourcing(&testLogger{errorChan: make(chan error, 10)}, db, projectorRegistry, eventRegistry, newReactorRegistry())
+			es := NewEventSourcing(&testLogger{errorChan: make(chan error, 10)}, db, projectorRegistry, eventRegistry, NewReactorRegistry())
 
 			// on processed channel
 			onProcessed := make(chan struct{}, 1)

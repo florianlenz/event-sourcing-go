@@ -17,7 +17,7 @@ func TestProcessor(t *testing.T) {
 		logger            *testLogger
 		projectorRegistry *projectorRegistry
 		eventRegistry     *eventRegistry
-		reactorRegistry   *reactorRegistry
+		reactorRegistry   *ReactorRegistry
 	}
 
 	var newProcessorTestSet = func(replay bool, eventRepository iEventRepository, projectorRepository iProjectorRepository) (*processorTestSet, error) {
@@ -44,7 +44,7 @@ func TestProcessor(t *testing.T) {
 		eventRegistry := newEventRegistry()
 
 		//  reactor registry
-		reactorRegistry := newReactorRegistry()
+		reactorRegistry := NewReactorRegistry()
 
 		// projector repository
 		if projectorRepository == nil {
