@@ -17,6 +17,7 @@ type ProjectorRegistry struct {
 	queryProjectorsByEvent chan queryProjectorsByEvent
 }
 
+// register an projector
 func (r *ProjectorRegistry) Register(projector IProjector) error {
 
 	respChan := make(chan error, 1)

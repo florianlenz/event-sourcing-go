@@ -46,6 +46,7 @@ func (es *EventSourcing) Start() {
 	es.processor.Start()
 }
 
+// create a new event sourcing instance. Don't forget to start it. The processor won't process till you told him to do so.
 func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *ProjectorRegistry, eventRegistry *EventRegistry, reactorRegistry *ReactorRegistry) *EventSourcing {
 
 	closeChan := make(chan struct{})

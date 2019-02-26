@@ -28,6 +28,7 @@ type addEvent struct {
 	response     chan error
 }
 
+// register an new event with it's factory (factory = function that creates the event)
 func (r *EventRegistry) RegisterEvent(event IESEvent, eventFactory Factory) error {
 
 	responseChan := make(chan error, 1)
