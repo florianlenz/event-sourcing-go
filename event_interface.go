@@ -1,11 +1,8 @@
 package es
 
 // event interface
+// ATTENTION: your event must include a "Factory" method which will receive an instance of ESEvent AND an instance of the event Payload. The New method must return a non pointer instance of "it self"
 type IESEvent interface {
-	// name of the event
-	Name() string
-	// event payload in a map
-	Payload() Payload
 	// version of the event
 	Version() uint8
 	// commit date

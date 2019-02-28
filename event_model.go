@@ -5,9 +5,9 @@ import (
 )
 
 type event struct {
-	ID         *primitive.ObjectID `bson:"_id,omitempty"`
-	Name       string              `bson:"name"`
-	Payload    Payload             `bson:"payload"`
-	Version    uint8               `bson:"version"`
-	OccurredAt int64               `bson:"occurred_at"`
+	ID         *primitive.ObjectID    `bson:"_id,omitempty"`
+	Name       string                 `bson:"name"`
+	Payload    map[string]interface{} `bson:"payload"`
+	Version    uint8                  `bson:"version"`
+	OccurredAt int64                  `bson:"occurred_at"`
 }

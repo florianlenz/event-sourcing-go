@@ -2,164 +2,66 @@ package es
 
 import (
 	"fmt"
+	"sync"
 )
 
-// will create an event from the payload. A factory is usually registered in the context of an event
-type Factory func(payload Payload) IESEvent
-
-// registered event
-type registeredEvent struct {
-	event   IESEvent
-	factory Factory
-}
-
-type eventToESEvent struct {
-	event    event
-	response chan struct {
-		esEvent IESEvent
-		error   error
-	}
-}
-
-// add event command for state container
-type addEvent struct {
-	event        IESEvent
-	eventFactory Factory
-	response     chan error
-}
-
 // register an new event with it's factory (factory = function that creates the event)
-func (r *EventRegistry) RegisterEvent(event IESEvent, eventFactory Factory) error {
+func (r *EventRegistry) RegisterEvent(eventName string, event IESEvent) error {
 
-	responseChan := make(chan error, 1)
-
-	r.addEvent <- addEvent{
-		event:        event,
-		eventFactory: eventFactory,
-		response:     responseChan,
+	//  validate event's "New" method
+	if err := doesEventHasValidNewMethod(event); err != nil {
+		return err
 	}
 
-	return <-responseChan
+	// lock / unlock
+	r.lock.Lock()
+	defer func() {
+		r.lock.Unlock()
+	}()
+
+	// ensure event hasn't been added
+	if _, registered := r.registeredEvents[eventName]; registered {
+		return fmt.Errorf("%s has already been registered", eventName)
+	}
+
+	// register event
+	r.registeredEvents[eventName] = event
+
+	return nil
 
 }
 
 func (r *EventRegistry) EventToESEvent(e event) (IESEvent, error) {
 
-	// response channel
-	responseChan := make(chan struct {
-		esEvent IESEvent
-		error   error
-	}, 1)
+	// lock / unlock
+	r.lock.Lock()
+	defer func() {
+		r.lock.Unlock()
+	}()
 
-	// ask state machine to convert the event to
-	r.eventToESEvent <- eventToESEvent{
-		event:    e,
-		response: responseChan,
+	// fetch registered event
+	esEvent, exists := r.registeredEvents[e.Name]
+	if !exists {
+		return nil, fmt.Errorf("an event struct for event with name: %s hasn't been registered", esEvent)
 	}
 
-	// response
-	response := <-responseChan
-
-	// return error if there is an error
-	if response.error != nil {
-		return nil, response.error
-	}
-
-	return response.esEvent, nil
+	// get the events payload type
+	return callEventFactoryMethod(esEvent, e)
 
 }
 
 // the public registry it self
 type EventRegistry struct {
-	addEvent       chan addEvent
-	eventToESEvent chan eventToESEvent
+	lock             *sync.Mutex
+	registeredEvents map[string]IESEvent
 }
 
 func NewEventRegistry() *EventRegistry {
 
-	// register event over this channel
-	addEvent := make(chan addEvent)
-
-	eventToESEvent := make(chan eventToESEvent)
-
 	// event registry
 	reg := &EventRegistry{
-		addEvent:       addEvent,
-		eventToESEvent: eventToESEvent,
+		lock: &sync.Mutex{},
 	}
-
-	go func() {
-
-		registeredEvents := map[string]registeredEvent{}
-
-		for {
-
-			select {
-
-			// add event to registry
-			case addEvent := <-addEvent:
-
-				// ensure that event hasn't been added
-				_, registered := registeredEvents[addEvent.event.Name()]
-				if registered {
-					addEvent.response <- fmt.Errorf("event with name '%s' got already registered", addEvent.event.Name())
-					continue
-				}
-
-				// register event
-				registeredEvents[addEvent.event.Name()] = registeredEvent{
-					event:   addEvent.event,
-					factory: addEvent.eventFactory,
-				}
-
-				addEvent.response <- nil
-
-			case eventToESEvent := <-eventToESEvent:
-
-				e := eventToESEvent.event
-
-				// fetch registered event
-				registeredEvent, exists := registeredEvents[e.Name]
-				if !exists {
-					eventToESEvent.response <- struct {
-						esEvent IESEvent
-						error   error
-					}{esEvent: nil, error: fmt.Errorf("event with name '%s' hasn't been registered", e.Name)}
-					continue
-				}
-
-				// create event from payload
-				esEvent := registeredEvent.factory(e.Payload)
-
-				// exit if invalid event is returned
-				if esEvent == nil {
-					eventToESEvent.response <- struct {
-						esEvent IESEvent
-						error   error
-					}{esEvent: nil, error: fmt.Errorf("received nil from event factory - for event: %s", e.Name)}
-					continue
-				}
-
-				// this is a case that shouldn't happen
-				if esEvent.Name() != e.Name {
-					eventToESEvent.response <- struct {
-						esEvent IESEvent
-						error   error
-					}{esEvent: nil, error: fmt.Errorf("attention! the creation of an event with name '%s' resulted in the creation of an event with name: '%s'", e.Name, esEvent.Name())}
-					continue
-				}
-
-				// send response back
-				eventToESEvent.response <- struct {
-					esEvent IESEvent
-					error   error
-				}{esEvent: esEvent, error: nil}
-
-			}
-
-		}
-
-	}()
 
 	return reg
 
