@@ -19,6 +19,7 @@ type iProjectorRepository interface {
 type projectorRepository struct {
 	eventCollection     *mongo.Collection
 	projectorCollection *mongo.Collection
+	eventRegistry       *EventRegistry
 }
 
 func (r *projectorRepository) UpdateLastHandledEvent(projector IProjector, event event) error {
@@ -53,7 +54,11 @@ func (r *projectorRepository) OutOfSyncBy(p IProjector) (int64, error) {
 	// event names that the projector subscribed to
 	eventNames := bson.A{}
 	for _, event := range p.InterestedInEvents() {
-		eventNames = append(eventNames, event.Name())
+		eventName, err := r.eventRegistry.GetEventName(event)
+		if err != nil {
+			return 0, err
+		}
+		eventNames = append(eventNames, eventName)
 	}
 
 	// fetch projector
@@ -89,9 +94,10 @@ func (r *projectorRepository) OutOfSyncBy(p IProjector) (int64, error) {
 
 }
 
-func newProjectorRepository(eventCollection, projectorCollection *mongo.Collection) *projectorRepository {
+func newProjectorRepository(eventCollection, projectorCollection *mongo.Collection, eventRegistry *EventRegistry) *projectorRepository {
 	return &projectorRepository{
 		eventCollection:     eventCollection,
 		projectorCollection: projectorCollection,
+		eventRegistry:       eventRegistry,
 	}
 }

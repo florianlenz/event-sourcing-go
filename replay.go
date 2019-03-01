@@ -13,7 +13,7 @@ func Replay(logger ILogger, db *mongo.Database, projectorRegistry *ProjectorRegi
 
 	// repositories
 	eventRepository := newEventRepository(eventCollection)
-	projectorRepository := newProjectorRepository(eventCollection, projectorCollection)
+	projectorRepository := newProjectorRepository(eventCollection, projectorCollection, eventRegistry)
 
 	done := make(chan error, 1)
 

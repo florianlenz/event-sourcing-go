@@ -1,103 +1,49 @@
 package es
 
-import "fmt"
-
-type addProjector struct {
-	projector IProjector
-	response  chan error
-}
-
-type queryProjectorsByEvent struct {
-	event        IESEvent
-	responseChan chan []IProjector
-}
+import (
+	"fmt"
+	"sync"
+)
 
 type ProjectorRegistry struct {
-	addProjector           chan addProjector
-	queryProjectorsByEvent chan queryProjectorsByEvent
+	lock       *sync.Mutex
+	projectors map[string]IProjector
 }
 
 // register an projector
 func (r *ProjectorRegistry) Register(projector IProjector) error {
 
-	respChan := make(chan error, 1)
+	// lock
+	r.lock.Lock()
+	defer func() {
+		r.lock.Unlock()
+	}()
 
-	r.addProjector <- struct {
-		projector IProjector
-		response  chan error
-	}{projector: projector, response: respChan}
+	// ensure that projector hasn't been added
+	_, exists := r.projectors[projector.Name()]
+	if exists {
+		return fmt.Errorf("projector with id: %s has already been registered", projector.Name())
+	}
 
-	return <-respChan
+	r.projectors[projector.Name()] = projector
+
+	return nil
 
 }
 
 func (r *ProjectorRegistry) ProjectorsForEvent(event IESEvent) []IProjector {
 
-	responseChan := make(chan []IProjector)
+	projectors := []IProjector{}
 
-	r.queryProjectorsByEvent <- queryProjectorsByEvent{
-		event:        event,
-		responseChan: responseChan,
-	}
-
-	return <-responseChan
+	return projectors
 
 }
 
 func NewProjectorRegistry() *ProjectorRegistry {
 
-	registerProjectorChan := make(chan addProjector)
-
-	queryProjectorsByEvent := make(chan queryProjectorsByEvent)
-
-	registry := &ProjectorRegistry{
-		addProjector:           registerProjectorChan,
-		queryProjectorsByEvent: queryProjectorsByEvent,
+	return &ProjectorRegistry{
+		lock:       &sync.Mutex{},
+		projectors: map[string]IProjector{},
 	}
-
-	go func() {
-
-		registeredProjectors := map[string]IProjector{}
-
-		for {
-
-			select {
-			case addProjector := <-registerProjectorChan:
-
-				responseChannel := addProjector.response
-				projectorToAdd := addProjector.projector
-
-				// make sure that projector doesn't exist
-				_, exists := registeredProjectors[projectorToAdd.Name()]
-				if exists {
-					addProjector.response <- fmt.Errorf("projector with name '%s' already registered", projectorToAdd.Name())
-					continue
-				}
-
-				// add projector
-				registeredProjectors[projectorToAdd.Name()] = projectorToAdd
-				responseChannel <- nil
-
-			case query := <-queryProjectorsByEvent:
-
-				filteredEvents := []IProjector{}
-
-				for _, projector := range registeredProjectors {
-					for _, e := range projector.InterestedInEvents() {
-						if e.Name() == query.event.Name() {
-							filteredEvents = append(filteredEvents, projector)
-						}
-					}
-				}
-
-				query.responseChan <- filteredEvents
-
-			}
-
-		}
-
-	}()
-
-	return registry
 
 }

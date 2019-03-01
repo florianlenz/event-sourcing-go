@@ -1,7 +1,9 @@
 package es
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 )
 
@@ -28,6 +30,30 @@ func (r *EventRegistry) RegisterEvent(eventName string, event IESEvent) error {
 	r.registeredEvents[eventName] = event
 
 	return nil
+
+}
+
+func (r *EventRegistry) GetEventName(event IESEvent) (string, error) {
+
+	eventType := reflect.TypeOf(event)
+
+	// lock
+	r.lock.Lock()
+	go func() {
+		r.lock.Unlock()
+	}()
+
+	for eventName, registeredEvent := range r.registeredEvents {
+
+		registeredEventType := reflect.TypeOf(registeredEvent)
+
+		if registeredEventType == eventType {
+			return eventName, nil
+		}
+
+	}
+
+	return "", errors.New("couldn't find event name for event")
 
 }
 
@@ -60,7 +86,8 @@ func NewEventRegistry() *EventRegistry {
 
 	// event registry
 	reg := &EventRegistry{
-		lock: &sync.Mutex{},
+		lock:             &sync.Mutex{},
+		registeredEvents: map[string]IESEvent{},
 	}
 
 	return reg

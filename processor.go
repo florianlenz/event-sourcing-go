@@ -109,9 +109,9 @@ func newProcessor(
 							continue
 						}
 
-						// report if error is out of sync. Being out of sync by one is fine since we are about to process the event
+						// report if projector is out of sync. Being out of sync by one is fine since we are about to process the event
 						if outOfSyncBy > 1 {
-							logger.Error(fmt.Errorf("projector '%s' is out of sync - tried to apply event with name '%s'", projector.Name(), esEvent.Name()))
+							logger.Error(fmt.Errorf("projector '%s' is out of sync - tried to apply event with name '%s'", projector.Name(), persistedEvent.Name))
 							continue
 						}
 
@@ -133,10 +133,11 @@ func newProcessor(
 
 				// pass event to reactors
 				if !replay {
-					reactors := reactorRegistry.ForEvent(esEvent)
+
+					reactors := reactorRegistry.Reactors(esEvent)
 
 					for _, reactor := range reactors {
-						reactor.Handle(esEvent)
+						reactor(esEvent)
 					}
 
 				}

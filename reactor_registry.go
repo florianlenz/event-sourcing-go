@@ -1,73 +1,100 @@
 package es
 
-type IReactor interface {
-	// react on event
-	Handle(event IESEvent)
-	OnEvent() string
+import (
+	"errors"
+	"reflect"
+	"sync"
+)
+
+type reactor = func(event IESEvent)
+
+type registeredReactor struct {
+	eventType reflect.Type
+	reactor   reactor
 }
 
 type ReactorRegistry struct {
-	registerReactorChannel       chan IReactor
-	fetchReactorsForEventChannel chan fetchReactorsForEvent
-}
-
-type registerReactor struct {
-	eventName string
-	reactor   IReactor
-}
-
-type fetchReactorsForEvent struct {
-	eventName string
-	response  chan []IReactor
+	lock     *sync.Mutex
+	reactors map[reflect.Type][]registeredReactor
 }
 
 // Register a new reactor
-func (r *ReactorRegistry) Register(reactor IReactor) {
-	r.registerReactorChannel <- reactor
+func (r *ReactorRegistry) Register(reactor interface{}) error {
+
+	reactorType := reflect.TypeOf(reactor)
+
+	// lock the application
+	r.lock.Lock()
+	defer func() {
+		r.lock.Unlock()
+	}()
+
+	// ensure that reactor hasn't been added
+	for _, registeredReactorCollection := range r.reactors {
+		for _, registeredReactor := range registeredReactorCollection {
+			if registeredReactor.eventType == reactorType {
+				return errors.New("reactor has already been registered")
+			}
+		}
+	}
+
+	if reactorType.Kind() != reflect.Struct {
+		return errors.New("reactor must be a struct")
+	}
+
+	method, exists := reactorType.MethodByName("Handle")
+	if !exists {
+		return errors.New("reactor must have a 'Handle' method")
+	}
+
+	if method.Type.NumIn() != 1 {
+		return errors.New("the reactors 'Handle' method must accept one parameter")
+	}
+
+	firstParameterType := method.Type.In(0)
+
+	if !firstParameterType.Implements(reflect.TypeOf(new(IESEvent))) {
+		return errors.New("the reactors 'Handle' method must take an implementation of IESEvent as it's first parameter")
+	}
+
+	// append reactor
+	r.reactors[reactorType] = append(r.reactors[reactorType], registeredReactor{
+		eventType: firstParameterType,
+		reactor:   reactorFactory(reactor),
+	})
+
+	return nil
+
 }
 
 // Fetch reactors for event
-func (r *ReactorRegistry) ForEvent(event IESEvent) []IReactor {
+func (r *ReactorRegistry) Reactors(event IESEvent) []reactor {
 
-	response := make(chan []IReactor, 1)
+	// lock
+	r.lock.Lock()
+	defer func() {
+		r.lock.Unlock()
+	}()
 
-	r.fetchReactorsForEventChannel <- fetchReactorsForEvent{
-		eventName: event.Name(),
-		response:  response,
+	// event type
+	eventType := reflect.TypeOf(event)
+
+	// get reactors for event type
+	reactors := []reactor{}
+	registeredReactors := r.reactors[eventType]
+	for _, registeredReactor := range registeredReactors {
+		reactors = append(reactors, registeredReactor.reactor)
 	}
 
-	return <-response
+	return reactors
 
 }
 
 func NewReactorRegistry() *ReactorRegistry {
 
-	registerReactorChannel := make(chan IReactor)
-	fetchReactorsForEventChannel := make(chan fetchReactorsForEvent)
-
 	r := &ReactorRegistry{
-		registerReactorChannel:       registerReactorChannel,
-		fetchReactorsForEventChannel: fetchReactorsForEventChannel,
+		reactors: map[reflect.Type][]registeredReactor{},
 	}
-
-	go func() {
-
-		registeredReactors := map[string][]IReactor{}
-
-		for {
-
-			select {
-			case reactor := <-registerReactorChannel:
-				// register reactor
-				registeredReactors[reactor.OnEvent()] = append(registeredReactors[reactor.OnEvent()], reactor)
-			case fetch := <-fetchReactorsForEventChannel:
-				// fetch reactors for event
-				fetch.response <- registeredReactors[fetch.eventName]
-			}
-
-		}
-
-	}()
 
 	return r
 

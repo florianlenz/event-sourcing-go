@@ -9,14 +9,27 @@ type EventSourcing struct {
 	eventRepository iEventRepository
 	close           chan struct{}
 	processor       *Processor
+	eventRegistry   *EventRegistry
 }
 
 func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 
+	// @todo fetch event name based on type
+	eventName, err := es.eventRegistry.GetEventName(e)
+	if err != nil {
+		return err
+	}
+
+	// @todo marshal event payload
+	eventPayload, err := marshalEventPayload()
+	if err != nil {
+		return err
+	}
+
 	// new event
 	eventToPersist := &event{
-		Name:       e.Name(),
-		Payload:    e.Payload(),
+		Name:       eventName,
+		Payload:    eventPayload,
 		Version:    e.Version(),
 		OccurredAt: time.Now().Unix(),
 	}
@@ -57,7 +70,7 @@ func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *Pro
 
 	// repos
 	eventRepository := newEventRepository(eventCollection)
-	projectorRepository := newProjectorRepository(eventCollection, projectorCollection)
+	projectorRepository := newProjectorRepository(eventCollection, projectorCollection, eventRegistry)
 
 	// processor
 	processor := newProcessor(projectorRegistry, eventRegistry, reactorRegistry, projectorRepository, eventRepository, logger, false)
@@ -66,6 +79,7 @@ func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *Pro
 		eventRepository: eventRepository,
 		close:           closeChan,
 		processor:       processor,
+		eventRegistry:   eventRegistry,
 	}
 
 	return es
