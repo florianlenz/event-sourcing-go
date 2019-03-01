@@ -1,19 +1,21 @@
 package es
 
 import (
+	"github.com/florianlenz/event-sourcing-go/event"
+	"github.com/florianlenz/event-sourcing-go/projector"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
-func Replay(logger ILogger, db *mongo.Database, projectorRegistry *ProjectorRegistry, eventRegistry *EventRegistry) <-chan error {
+func Replay(logger ILogger, db *mongo.Database, projectorRegistry *projector.Registry, eventRegistry *event.Registry) <-chan error {
 
 	// collections
 	eventCollection := db.Collection("events")
 	projectorCollection := db.Collection("projectors")
 
 	// repositories
-	eventRepository := newEventRepository(eventCollection)
-	projectorRepository := newProjectorRepository(eventCollection, projectorCollection, eventRegistry)
+	eventRepository := event.NewEventRepository(eventCollection)
+	projectorRepository := projector.NewProjectorRepository(eventCollection, projectorCollection, eventRegistry)
 
 	done := make(chan error, 1)
 

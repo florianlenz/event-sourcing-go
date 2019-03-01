@@ -1,17 +1,18 @@
-package es
+package projector
 
 import (
 	"context"
+	"github.com/florianlenz/event-sourcing-go/event"
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/mongodb/mongo-go-driver/mongo/options"
 )
 
-type iProjectorRepository interface {
+type IProjectorRepository interface {
 	// check if projector is out of sync
 	OutOfSyncBy(projector IProjector) (int64, error)
 	// update the last handled event on the projector
-	UpdateLastHandledEvent(projector IProjector, event event) error
+	UpdateLastHandledEvent(projector IProjector, event event.Event) error
 	// drop projector collection
 	Drop() error
 }
@@ -19,10 +20,10 @@ type iProjectorRepository interface {
 type projectorRepository struct {
 	eventCollection     *mongo.Collection
 	projectorCollection *mongo.Collection
-	eventRegistry       *EventRegistry
+	eventRegistry       *event.Registry
 }
 
-func (r *projectorRepository) UpdateLastHandledEvent(projector IProjector, event event) error {
+func (r *projectorRepository) UpdateLastHandledEvent(projector IProjector, event event.Event) error {
 
 	projectors := r.projectorCollection
 
@@ -53,8 +54,8 @@ func (r *projectorRepository) OutOfSyncBy(p IProjector) (int64, error) {
 
 	// event names that the projector subscribed to
 	eventNames := bson.A{}
-	for _, event := range p.InterestedInEvents() {
-		eventName, err := r.eventRegistry.GetEventName(event)
+	for _, e := range p.InterestedInEvents() {
+		eventName, err := r.eventRegistry.GetEventName(e)
 		if err != nil {
 			return 0, err
 		}
@@ -94,7 +95,7 @@ func (r *projectorRepository) OutOfSyncBy(p IProjector) (int64, error) {
 
 }
 
-func newProjectorRepository(eventCollection, projectorCollection *mongo.Collection, eventRegistry *EventRegistry) *projectorRepository {
+func NewProjectorRepository(eventCollection, projectorCollection *mongo.Collection, eventRegistry *event.Registry) *projectorRepository {
 	return &projectorRepository{
 		eventCollection:     eventCollection,
 		projectorCollection: projectorCollection,

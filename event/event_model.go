@@ -1,10 +1,10 @@
-package es
+package event
 
 import (
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
-type event struct {
+type Event struct {
 	ID         *primitive.ObjectID    `bson:"_id,omitempty"`
 	Name       string                 `bson:"name"`
 	Payload    map[string]interface{} `bson:"payload"`

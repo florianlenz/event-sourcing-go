@@ -1,39 +1,10 @@
-package es
+package event
 
 import (
 	"errors"
 	"fmt"
 	"reflect"
 )
-
-// get payload struct type of  event
-func eventPayloadType(event IESEvent) (reflect.Type, error) {
-
-	eventType := reflect.TypeOf(event)
-
-	// get element in case we received a pointer
-	if eventType.Kind() == reflect.Ptr {
-		eventType = eventType.Elem()
-	}
-
-	// ensure property exists
-	field, exists := eventType.FieldByNameFunc(func(s string) bool {
-		return s == "payload"
-	})
-
-	// exit in case the payload prop does not exist
-	if !exists {
-		return nil, fmt.Errorf("event: '%s' doesn't have a payload property - keep in mind that exported payload properties are not accepted", eventType.Name())
-	}
-
-	// ensure that property is a struct
-	if field.Type.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("the payload of event '%s' must be a struct - got: '%s'", eventType.Name(), field.Type.Kind())
-	}
-
-	return field.Type, nil
-
-}
 
 // check if the IESEvent implementation supports the "Factory" function
 func doesEventHasValidFactoryMethod(event IESEvent) error {
@@ -87,45 +58,36 @@ func doesEventHasValidFactoryMethod(event IESEvent) error {
 
 }
 
-func reactorFactory(reactor interface{}) (reactor, error) {
+// get payload struct type of  event
+func eventPayloadType(event IESEvent) (reflect.Type, error) {
 
-	// get type of reactor
-	reactorType := reflect.TypeOf(reactor)
-	if reactorType.Kind() == reflect.Ptr {
-		reactorType = reactorType.Elem()
+	eventType := reflect.TypeOf(event)
+
+	// get element in case we received a pointer
+	if eventType.Kind() == reflect.Ptr {
+		eventType = eventType.Elem()
 	}
 
-	// exit if not a valid reactor
-	if reactorType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("reactor '%s' is not a struct", reactorType.Name())
-	}
+	// ensure property exists
+	field, exists := eventType.FieldByNameFunc(func(s string) bool {
+		return s == "payload"
+	})
 
-	// get handle method
-	handleMethod, exists := reactorType.MethodByName("Handle")
+	// exit in case the payload prop does not exist
 	if !exists {
-		return nil, fmt.Errorf("reactor '%s' doesn't have a 'Handle' method", reactorType.Name())
+		return nil, fmt.Errorf("event: '%s' doesn't have a payload property - keep in mind that exported payload properties are not accepted", eventType.Name())
 	}
 
-	// ensure that the handle method expects one argument
-	if handleMethod.Type.NumIn() != 1 {
-		return nil, fmt.Errorf("the handle method of reactor %s must expect exactly one parameter", reactorType.Name())
+	// ensure that property is a struct
+	if field.Type.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("the payload of event '%s' must be a struct - got: '%s'", eventType.Name(), field.Type.Kind())
 	}
 
-	// ensure that the expected argument is an implementation of IESEvent
-	handleMethodParameterType := handleMethod.Type.In(0)
-	if !handleMethodParameterType.Implements(reflect.TypeOf(*new(IESEvent))) {
-		return nil, fmt.Errorf("the handle method expects %s which is not an IESImplementation", handleMethodParameterType.Name())
-	}
-
-	return func(event IESEvent) {
-		handleMethod.Func.Call([]reflect.Value{
-			reflect.ValueOf(event),
-		})
-	}, nil
+	return field.Type, nil
 
 }
 
-func marshalEventPayload(event IESEvent) (map[string]interface{}, error) {
+func MarshalEventPayload(event IESEvent) (map[string]interface{}, error) {
 
 	// get payload type
 	payloadType, err := eventPayloadType(event)
@@ -261,7 +223,7 @@ func payloadMapToPayload(payloadType reflect.Type, payload map[string]interface{
 
 }
 
-func callEventFactoryMethod(esEvent IESEvent, persistedEvent event) (IESEvent, error) {
+func callEventFactoryMethod(esEvent IESEvent, persistedEvent Event) (IESEvent, error) {
 
 	eventType := reflect.TypeOf(esEvent)
 
@@ -279,9 +241,7 @@ func callEventFactoryMethod(esEvent IESEvent, persistedEvent event) (IESEvent, e
 
 	// compose Factory arguments
 	funcArgs := []reflect.Value{
-		reflect.ValueOf(ESEvent{
-			occurredAt: persistedEvent.OccurredAt,
-		}),
+		reflect.ValueOf(NewESEvent(persistedEvent.OccurredAt, persistedEvent.Version)),
 		reflect.ValueOf(payloadType),
 	}
 

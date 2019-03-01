@@ -1,5 +1,7 @@
 package es
 
+/**
+@todo this stays till we fixed the tests in all other packages
 import "github.com/mongodb/mongo-go-driver/bson/primitive"
 
 // test logger
@@ -96,3 +98,5 @@ func (r *testReactor) Handle(event IESEvent) {
 func (r *testReactor) OnEvent() string {
 	return r.onEvent
 }
+
+*/

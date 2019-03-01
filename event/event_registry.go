@@ -1,4 +1,4 @@
-package es
+package event
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 )
 
 // register an new event with it's factory (factory = function that creates the event)
-func (r *EventRegistry) RegisterEvent(eventName string, event IESEvent) error {
+func (r *Registry) RegisterEvent(eventName string, event IESEvent) error {
 
 	//  validate event's "New" method
 	if err := doesEventHasValidFactoryMethod(event); err != nil {
@@ -33,7 +33,7 @@ func (r *EventRegistry) RegisterEvent(eventName string, event IESEvent) error {
 
 }
 
-func (r *EventRegistry) GetEventName(event IESEvent) (string, error) {
+func (r *Registry) GetEventName(event IESEvent) (string, error) {
 
 	eventType := reflect.TypeOf(event)
 
@@ -57,7 +57,7 @@ func (r *EventRegistry) GetEventName(event IESEvent) (string, error) {
 
 }
 
-func (r *EventRegistry) EventToESEvent(e event) (IESEvent, error) {
+func (r *Registry) EventToESEvent(e Event) (IESEvent, error) {
 
 	// lock / unlock
 	r.lock.Lock()
@@ -77,15 +77,15 @@ func (r *EventRegistry) EventToESEvent(e event) (IESEvent, error) {
 }
 
 // the public registry it self
-type EventRegistry struct {
+type Registry struct {
 	lock             *sync.Mutex
 	registeredEvents map[string]IESEvent
 }
 
-func NewEventRegistry() *EventRegistry {
+func NewEventRegistry() *Registry {
 
 	// event registry
-	reg := &EventRegistry{
+	reg := &Registry{
 		lock:             &sync.Mutex{},
 		registeredEvents: map[string]IESEvent{},
 	}

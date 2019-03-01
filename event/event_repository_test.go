@@ -1,4 +1,4 @@
-package es
+package event
 
 import (
 	"context"

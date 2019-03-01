@@ -1,4 +1,4 @@
-package es
+package reactor
 
 import (
 	. "github.com/smartystreets/goconvey/convey"

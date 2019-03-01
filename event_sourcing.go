@@ -1,18 +1,21 @@
 package es
 
 import (
+	"github.com/florianlenz/event-sourcing-go/event"
+	"github.com/florianlenz/event-sourcing-go/projector"
+	"github.com/florianlenz/event-sourcing-go/reactor"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"time"
 )
 
 type EventSourcing struct {
-	eventRepository iEventRepository
+	eventRepository event.IEventRepository
 	close           chan struct{}
 	processor       *Processor
-	eventRegistry   *EventRegistry
+	eventRegistry   *event.Registry
 }
 
-func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
+func (es *EventSourcing) Commit(e event.IESEvent, onProcessed chan struct{}) error {
 
 	// @todo fetch event name based on type
 	eventName, err := es.eventRegistry.GetEventName(e)
@@ -21,13 +24,13 @@ func (es *EventSourcing) Commit(e IESEvent, onProcessed chan struct{}) error {
 	}
 
 	// @todo marshal event payload
-	eventPayload, err := marshalEventPayload(e)
+	eventPayload, err := event.MarshalEventPayload(e)
 	if err != nil {
 		return err
 	}
 
 	// new event
-	eventToPersist := &event{
+	eventToPersist := &event.Event{
 		Name:       eventName,
 		Payload:    eventPayload,
 		Version:    e.Version(),
@@ -60,7 +63,7 @@ func (es *EventSourcing) Start() {
 }
 
 // create a new event sourcing instance. Don't forget to start it. The processor won't process till you told him to do so.
-func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *ProjectorRegistry, eventRegistry *EventRegistry, reactorRegistry *ReactorRegistry) *EventSourcing {
+func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *projector.Registry, eventRegistry *event.Registry, reactorRegistry *reactor.Registry) *EventSourcing {
 
 	closeChan := make(chan struct{})
 
@@ -69,8 +72,8 @@ func NewEventSourcing(logger ILogger, db *mongo.Database, projectorRegistry *Pro
 	projectorCollection := db.Collection("projectors")
 
 	// repos
-	eventRepository := newEventRepository(eventCollection)
-	projectorRepository := newProjectorRepository(eventCollection, projectorCollection, eventRegistry)
+	eventRepository := event.NewEventRepository(eventCollection)
+	projectorRepository := projector.NewProjectorRepository(eventCollection, projectorCollection, eventRegistry)
 
 	// processor
 	processor := newProcessor(projectorRegistry, eventRegistry, reactorRegistry, projectorRepository, eventRepository, logger, false)

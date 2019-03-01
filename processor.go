@@ -2,13 +2,16 @@ package es
 
 import (
 	"fmt"
+	"github.com/florianlenz/event-sourcing-go/event"
+	"github.com/florianlenz/event-sourcing-go/projector"
+	"github.com/florianlenz/event-sourcing-go/reactor"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 type Processor struct {
 	stop                chan struct{}
-	projectorRegistry   *ProjectorRegistry
-	projectorRepository iProjectorRepository
+	projectorRegistry   *projector.Registry
+	projectorRepository projector.IProjectorRepository
 	eventQueue          chan processEvent
 	start               chan struct{}
 }
@@ -42,11 +45,11 @@ func (p *Processor) Start() {
 }
 
 func newProcessor(
-	projectorRegistry *ProjectorRegistry,
-	eventRegistry *EventRegistry,
-	reactorRegistry *ReactorRegistry,
-	projectorRepository iProjectorRepository,
-	eventRepository iEventRepository,
+	projectorRegistry *projector.Registry,
+	eventRegistry *event.Registry,
+	reactorRegistry *reactor.Registry,
+	projectorRepository projector.IProjectorRepository,
+	eventRepository event.IEventRepository,
 	logger ILogger,
 	replay bool) *Processor {
 

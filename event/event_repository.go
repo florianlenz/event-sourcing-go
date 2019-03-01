@@ -1,4 +1,4 @@
-package es
+package event
 
 import (
 	"context"
@@ -8,11 +8,11 @@ import (
 	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
-type iEventRepository interface {
+type IEventRepository interface {
 	// save event
-	Save(event *event) error
+	Save(event *Event) error
 	// fetch event by it's id
-	FetchByID(id primitive.ObjectID) (event, error)
+	FetchByID(id primitive.ObjectID) (Event, error)
 	// map over all events
 	Map(cb func(eventID primitive.ObjectID)) error
 }
@@ -21,7 +21,7 @@ type eventRepository struct {
 	eventCollection *mongo.Collection
 }
 
-func (r *eventRepository) Save(event *event) error {
+func (r *eventRepository) Save(event *Event) error {
 
 	// insert the event
 	insertionResult, err := r.eventCollection.InsertOne(context.Background(), event)
@@ -51,7 +51,7 @@ func (r *eventRepository) Map(cb func(primitive.ObjectID)) error {
 
 	// start iterating over the event
 	for cursor.Next(ctx) {
-		event := &event{}
+		event := &Event{}
 		// @todo would be better if we would receive only the id
 		if err := cursor.Decode(&event); err != nil {
 			return err
@@ -63,22 +63,22 @@ func (r *eventRepository) Map(cb func(primitive.ObjectID)) error {
 
 }
 
-func (r *eventRepository) FetchByID(id primitive.ObjectID) (event, error) {
+func (r *eventRepository) FetchByID(id primitive.ObjectID) (Event, error) {
 
 	// find event by it's id
 	result := r.eventCollection.FindOne(context.Background(), bson.M{"_id": id})
 
 	// decode event
-	e := event{}
+	e := Event{}
 	if err := result.Decode(&e); err != nil {
-		return event{}, err
+		return Event{}, err
 	}
 
 	return e, nil
 
 }
 
-func newEventRepository(eventCollection *mongo.Collection) *eventRepository {
+func NewEventRepository(eventCollection *mongo.Collection) *eventRepository {
 	return &eventRepository{
 		eventCollection: eventCollection,
 	}

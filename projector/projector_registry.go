@@ -1,17 +1,18 @@
-package es
+package projector
 
 import (
 	"fmt"
+	"github.com/florianlenz/event-sourcing-go/event"
 	"sync"
 )
 
-type ProjectorRegistry struct {
+type Registry struct {
 	lock       *sync.Mutex
 	projectors map[string]IProjector
 }
 
 // register an projector
-func (r *ProjectorRegistry) Register(projector IProjector) error {
+func (r *Registry) Register(projector IProjector) error {
 
 	// lock
 	r.lock.Lock()
@@ -31,7 +32,7 @@ func (r *ProjectorRegistry) Register(projector IProjector) error {
 
 }
 
-func (r *ProjectorRegistry) ProjectorsForEvent(event IESEvent) []IProjector {
+func (r *Registry) ProjectorsForEvent(event event.IESEvent) []IProjector {
 
 	projectors := []IProjector{}
 
@@ -39,9 +40,9 @@ func (r *ProjectorRegistry) ProjectorsForEvent(event IESEvent) []IProjector {
 
 }
 
-func NewProjectorRegistry() *ProjectorRegistry {
+func NewProjectorRegistry() *Registry {
 
-	return &ProjectorRegistry{
+	return &Registry{
 		lock:       &sync.Mutex{},
 		projectors: map[string]IProjector{},
 	}

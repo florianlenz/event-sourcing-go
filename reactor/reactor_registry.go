@@ -1,25 +1,26 @@
-package es
+package reactor
 
 import (
 	"errors"
+	"github.com/florianlenz/event-sourcing-go/event"
 	"reflect"
 	"sync"
 )
 
-type reactor = func(event IESEvent)
+type reactor = func(event event.IESEvent)
 
 type registeredReactor struct {
 	eventType reflect.Type
 	reactor   reactor
 }
 
-type ReactorRegistry struct {
+type Registry struct {
 	lock     *sync.Mutex
 	reactors map[reflect.Type][]registeredReactor
 }
 
 // Register a new reactor
-func (r *ReactorRegistry) Register(reactor interface{}) error {
+func (r *Registry) Register(reactor interface{}) error {
 
 	reactorType := reflect.TypeOf(reactor)
 
@@ -53,7 +54,7 @@ func (r *ReactorRegistry) Register(reactor interface{}) error {
 
 	firstParameterType := method.Type.In(0)
 
-	if !firstParameterType.Implements(reflect.TypeOf(new(IESEvent))) {
+	if !firstParameterType.Implements(reflect.TypeOf(new(event.IESEvent))) {
 		return errors.New("the reactors 'Handle' method must take an implementation of IESEvent as it's first parameter")
 	}
 
@@ -74,7 +75,7 @@ func (r *ReactorRegistry) Register(reactor interface{}) error {
 }
 
 // Fetch reactors for event
-func (r *ReactorRegistry) Reactors(event IESEvent) []reactor {
+func (r *Registry) Reactors(event event.IESEvent) []reactor {
 
 	// lock
 	r.lock.Lock()
@@ -96,9 +97,10 @@ func (r *ReactorRegistry) Reactors(event IESEvent) []reactor {
 
 }
 
-func NewReactorRegistry() *ReactorRegistry {
+func NewReactorRegistry() *Registry {
 
-	r := &ReactorRegistry{
+	r := &Registry{
+		lock:     &sync.Mutex{},
 		reactors: map[reflect.Type][]registeredReactor{},
 	}
 
