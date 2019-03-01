@@ -11,7 +11,7 @@ import (
 func (r *EventRegistry) RegisterEvent(eventName string, event IESEvent) error {
 
 	//  validate event's "New" method
-	if err := doesEventHasValidNewMethod(event); err != nil {
+	if err := doesEventHasValidFactoryMethod(event); err != nil {
 		return err
 	}
 

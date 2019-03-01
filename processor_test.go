@@ -48,7 +48,7 @@ func TestProcessor(t *testing.T) {
 
 		// projector repository
 		if projectorRepository == nil {
-			projectorRepository = newProjectorRepository(db.Collection("events"), db.Collection("projectors"))
+			projectorRepository = newProjectorRepository(db.Collection("events"), db.Collection("projectors"), eventRegistry)
 		}
 
 		// create new event repository if no other got passed in
@@ -158,9 +158,7 @@ func TestProcessor(t *testing.T) {
 			processorTestSet.processor.Start()
 
 			// register event
-			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.registered"}, func(payload Payload) IESEvent {
-				return &testEvent{name: "user.registered"}
-			})
+			err = processorTestSet.eventRegistry.RegisterEvent("user.registered", testEvent{})
 			So(err, ShouldBeNil)
 
 			// register test projector
@@ -168,9 +166,7 @@ func TestProcessor(t *testing.T) {
 			err = processorTestSet.projectorRegistry.Register(&testProjector{
 				name: "user.projector",
 				interestedInEvents: []IESEvent{
-					&testEvent{
-						name: "user.registered",
-					},
+					&testEvent{},
 				},
 				handleEvent: func(event IESEvent) error {
 					calledHandleOnProjector <- struct{}{}
@@ -230,18 +226,14 @@ func TestProcessor(t *testing.T) {
 			processorTestSet.processor.Start()
 
 			// register event
-			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.registered"}, func(payload Payload) IESEvent {
-				return &testEvent{name: "user.registered"}
-			})
+			err = processorTestSet.eventRegistry.RegisterEvent("user.registered", testEvent{})
 			So(err, ShouldBeNil)
 
 			// register test projector
 			err = processorTestSet.projectorRegistry.Register(&testProjector{
 				name: "user.projector",
 				interestedInEvents: []IESEvent{
-					&testEvent{
-						name: "user.registered",
-					},
+					&testEvent{},
 				},
 				handleEvent: func(event IESEvent) error {
 					return errors.New("error during handling event")
@@ -292,18 +284,14 @@ func TestProcessor(t *testing.T) {
 			processorTestSet.processor.Start()
 
 			// register event
-			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.registered"}, func(payload Payload) IESEvent {
-				return &testEvent{name: "user.registered"}
-			})
+			err = processorTestSet.eventRegistry.RegisterEvent("user.registered", testEvent{})
 			So(err, ShouldBeNil)
 
 			// register test projector
 			err = processorTestSet.projectorRegistry.Register(&testProjector{
 				name: "user.projector",
 				interestedInEvents: []IESEvent{
-					&testEvent{
-						name: "user.registered",
-					},
+					&testEvent{},
 				},
 				handleEvent: func(event IESEvent) error {
 					return nil
@@ -377,21 +365,18 @@ func TestProcessor(t *testing.T) {
 			reactorRegistry := processorTestSet.reactorRegistry
 
 			// register event
-			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.created"}, func(payload Payload) IESEvent {
-				return testEvent{
-					name: "user.created",
-				}
-			})
+			err = processorTestSet.eventRegistry.RegisterEvent("user.created", testEvent{})
 			So(err, ShouldBeNil)
 
 			// register event
 			calledReactor := make(chan struct{}, 1)
-			reactorRegistry.Register(&testReactor{
+			err = reactorRegistry.Register(&testReactor{
 				handle: func(event IESEvent) {
 					calledReactor <- struct{}{}
 				},
 				onEvent: "user.created",
 			})
+			So(err, ShouldBeNil)
 
 			// process
 			processor.Process(primitive.ObjectID{})
@@ -424,21 +409,18 @@ func TestProcessor(t *testing.T) {
 			reactorRegistry := processorTestSet.reactorRegistry
 
 			// register event
-			err = processorTestSet.eventRegistry.RegisterEvent(&testEvent{name: "user.created"}, func(payload Payload) IESEvent {
-				return testEvent{
-					name: "user.created",
-				}
-			})
+			err = processorTestSet.eventRegistry.RegisterEvent("user.created", testEvent{})
 			So(err, ShouldBeNil)
 
 			// register event
 			calledReactor := make(chan struct{}, 1)
-			reactorRegistry.Register(&testReactor{
+			err = reactorRegistry.Register(&testReactor{
 				handle: func(event IESEvent) {
 					calledReactor <- struct{}{}
 				},
 				onEvent: "user.created",
 			})
+			So(err, ShouldBeNil)
 
 			// process and wait till done
 			<-processor.Process(primitive.ObjectID{})

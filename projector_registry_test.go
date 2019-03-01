@@ -50,70 +50,13 @@ func TestProjectorRegistry(t *testing.T) {
 
 				registry := NewProjectorRegistry()
 
-				projectors := registry.ProjectorsForEvent(testEvent{
-					name: "user.registered",
-				})
+				projectors := registry.ProjectorsForEvent(testEvent{})
 
 				So(projectors, ShouldHaveLength, 0)
 
 			})
 
 			Convey("find relevant projectors", func() {
-
-				projectorA := &testProjector{
-					name: "projector.a",
-					interestedInEvents: []IESEvent{
-						testEvent{
-							name: "user.registered",
-						},
-						testEvent{
-							name: "user.changed_email",
-						},
-					},
-				}
-
-				projectorB := &testProjector{
-					name: "projector.b",
-					interestedInEvents: []IESEvent{
-						testEvent{
-							name: "user.verified_email",
-						},
-						testEvent{
-							name: "user.changed_email",
-						},
-					},
-				}
-
-				projectorC := &testProjector{
-					name: "projector.c",
-					interestedInEvents: []IESEvent{
-						testEvent{
-							name: "user.registered",
-						},
-					},
-				}
-
-				registry := NewProjectorRegistry()
-
-				// register projector A
-				err := registry.Register(projectorA)
-				So(err, ShouldBeNil)
-
-				// register projector B
-				err = registry.Register(projectorB)
-				So(err, ShouldBeNil)
-
-				// register projector C
-				err = registry.Register(projectorC)
-				So(err, ShouldBeNil)
-
-				filteredProjectors := registry.ProjectorsForEvent(testEvent{
-					name: "user.registered",
-				})
-
-				So(filteredProjectors, ShouldContain, projectorA)
-				So(filteredProjectors, ShouldContain, projectorC)
-				So(filteredProjectors, ShouldNotContain, projectorB)
 
 			})
 

@@ -218,15 +218,8 @@ func TestProjectorRepository(t *testing.T) {
 				}
 
 				outOfSyncBy, err := projectorRepo.OutOfSyncBy(&testProjector{
-					name: "com.projector",
-					interestedInEvents: []IESEvent{
-						&testEvent{
-							name: "user.created",
-						},
-						&testEvent{
-							name: "user.updated",
-						},
-					},
+					name:               "com.projector",
+					interestedInEvents: []IESEvent{},
 				})
 				So(err, ShouldBeNil)
 				So(outOfSyncBy, ShouldEqual, 4)
@@ -261,15 +254,8 @@ func TestProjectorRepository(t *testing.T) {
 
 				// test projector
 				proj := testProjector{
-					name: "com.projector",
-					interestedInEvents: []IESEvent{
-						&testEvent{
-							name: "user.created",
-						},
-						&testEvent{
-							name: "user.updated",
-						},
-					},
+					name:               "com.projector",
+					interestedInEvents: []IESEvent{},
 				}
 
 				// update last handled event
@@ -298,7 +284,7 @@ func TestProjectorRepository(t *testing.T) {
 			eventCollection := db.Collection("events")
 			projectorCollection := db.Collection("projectors")
 
-			projectorRepo := newProjectorRepository(eventCollection, projectorCollection)
+			projectorRepo := newProjectorRepository(eventCollection, projectorCollection, NewEventRegistry())
 
 			So(projectorRepo.eventCollection, ShouldEqual, eventCollection)
 			So(projectorRepo.projectorCollection, ShouldEqual, projectorCollection)
@@ -314,7 +300,7 @@ func TestProjectorRepository(t *testing.T) {
 			projectorCollection := db.Collection("projectors")
 
 			// projector repository
-			projectorRepository := newProjectorRepository(db.Collection("events"), projectorCollection)
+			projectorRepository := newProjectorRepository(db.Collection("events"), projectorCollection, NewEventRegistry())
 
 			// insert test projectors
 			_, err = db.Collection("projectors").InsertMany(context.Background(), []interface{}{

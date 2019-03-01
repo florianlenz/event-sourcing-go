@@ -57,10 +57,16 @@ func (r *ReactorRegistry) Register(reactor interface{}) error {
 		return errors.New("the reactors 'Handle' method must take an implementation of IESEvent as it's first parameter")
 	}
 
+	// create reactor
+	cratedReactor, err := reactorFactory(reactor)
+	if err != nil {
+		return err
+	}
+
 	// append reactor
 	r.reactors[reactorType] = append(r.reactors[reactorType], registeredReactor{
 		eventType: firstParameterType,
-		reactor:   reactorFactory(reactor),
+		reactor:   cratedReactor,
 	})
 
 	return nil

@@ -39,7 +39,7 @@ func TestEventRepository(t *testing.T) {
 
 				event := &event{
 					Name: "user.created",
-					Payload: Payload{
+					Payload: map[string]interface{}{
 						"key": "value",
 					},
 					Version:    1,
@@ -81,7 +81,7 @@ func TestEventRepository(t *testing.T) {
 				// event
 				e := &event{
 					Name: "user.created",
-					Payload: Payload{
+					Payload: map[string]interface{}{
 						"key": "value",
 					},
 					Version:    1,

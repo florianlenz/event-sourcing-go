@@ -15,36 +15,22 @@ func TestSpec(t *testing.T) {
 
 				registry := NewEventRegistry()
 
-				testEvent := testEvent{
-					name: "user.registered",
-				}
-
 				// first attempt
-				err := registry.RegisterEvent(testEvent, func(payload Payload) IESEvent {
-					return nil
-				})
+				err := registry.RegisterEvent("user.registered", testEvent{})
 				So(err, ShouldBeNil)
 
 				// second attempt
-				err = registry.RegisterEvent(testEvent, func(payload Payload) IESEvent {
-					return nil
-				})
+				err = registry.RegisterEvent("user.registered", testEvent{})
 				So(err, ShouldBeError, "event with name 'user.registered' got already registered")
 
 			})
 
 			Convey("register event successfully", func() {
 
-				testEvent := testEvent{
-					name: "user.registered",
-				}
-
 				registry := NewEventRegistry()
 
 				// register event
-				err := registry.RegisterEvent(testEvent, func(payload Payload) IESEvent {
-					return nil
-				})
+				err := registry.RegisterEvent("user.registered", testEvent{})
 				So(err, ShouldBeNil)
 
 			})
@@ -71,11 +57,7 @@ func TestSpec(t *testing.T) {
 				registry := NewEventRegistry()
 
 				// register event
-				err := registry.RegisterEvent(testEvent{name: "user.created"}, func(payload Payload) IESEvent {
-					return testEvent{
-						name: "wrong.event_name",
-					}
-				})
+				err := registry.RegisterEvent("user.created", testEvent{})
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
@@ -92,14 +74,10 @@ func TestSpec(t *testing.T) {
 				registry := NewEventRegistry()
 
 				// test event
-				esEvent := &testEvent{
-					name: "user.created",
-				}
+				esEvent := &testEvent{}
 
 				// register event
-				err := registry.RegisterEvent(testEvent{name: "user.created"}, func(payload Payload) IESEvent {
-					return esEvent
-				})
+				err := registry.RegisterEvent("user.created", testEvent{})
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
