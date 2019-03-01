@@ -3,6 +3,9 @@ package es
 import (
 	"context"
 	"errors"
+	"github.com/florianlenz/event-sourcing-go/event"
+	"github.com/florianlenz/event-sourcing-go/projector"
+	"github.com/florianlenz/event-sourcing-go/reactor"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	. "github.com/smartystreets/goconvey/convey"
@@ -10,17 +13,50 @@ import (
 	"time"
 )
 
+// test projector repository
+type testProjectorRepository struct {
+	outOfSyncBy            func(projector projector.IProjector) (int64, error)
+	updateLastHandledEvent func(projector projector.IProjector, event event.Event) error
+	drop                   func() error
+}
+
+func (r *testProjectorRepository) OutOfSyncBy(projector projector.IProjector) (int64, error) {
+	return r.outOfSyncBy(projector)
+}
+
+func (r *testProjectorRepository) UpdateLastHandledEvent(projector projector.IProjector, event event.Event) error {
+	return r.updateLastHandledEvent(projector, event)
+}
+
+func (r *testProjectorRepository) Drop() error {
+	return r.drop()
+}
+
+// test reactor
+type testReactor struct {
+	handle  func(event event.IESEvent)
+	onEvent string
+}
+
+func (r *testReactor) Handle(event event.IESEvent) {
+	r.handle(event)
+}
+
+func (r *testReactor) OnEvent() string {
+	return r.onEvent
+}
+
 func TestProcessor(t *testing.T) {
 
 	type processorTestSet struct {
 		processor         *Processor
 		logger            *testLogger
-		projectorRegistry *ProjectorRegistry
-		eventRegistry     *EventRegistry
-		reactorRegistry   *ReactorRegistry
+		projectorRegistry *projector.Registry
+		eventRegistry     *event.Registry
+		reactorRegistry   *reactor.Registry
 	}
 
-	var newProcessorTestSet = func(replay bool, eventRepository iEventRepository, projectorRepository iProjectorRepository) (*processorTestSet, error) {
+	var newProcessorTestSet = func(replay bool, eventRepository event.IEventRepository, projectorRepository projector.IProjectorRepository) (*processorTestSet, error) {
 
 		// logger
 		logger := &testLogger{
@@ -38,22 +74,22 @@ func TestProcessor(t *testing.T) {
 		err = db.Drop(context.Background())
 
 		// projector registry
-		projectorRegistry := NewProjectorRegistry()
+		projectorRegistry := projector.NewProjectorRegistry()
 
 		// event registry
-		eventRegistry := NewEventRegistry()
+		eventRegistry := event.NewEventRegistry()
 
 		//  reactor registry
-		reactorRegistry := NewReactorRegistry()
+		reactorRegistry := reactor.NewReactorRegistry()
 
 		// projector repository
 		if projectorRepository == nil {
-			projectorRepository = newProjectorRepository(db.Collection("events"), db.Collection("projectors"), eventRegistry)
+			projectorRepository = projector.NewProjectorRepository(db.Collection("events"), db.Collection("projectors"), eventRegistry)
 		}
 
 		// create new event repository if no other got passed in
 		if eventRepository == nil {
-			eventRepository = newEventRepository(db.Collection("events"))
+			eventRepository = event.NewEventRepository(db.Collection("events"))
 		}
 
 		processor := newProcessor(projectorRegistry, eventRegistry, reactorRegistry, projectorRepository, eventRepository, logger, replay)
@@ -79,9 +115,9 @@ func TestProcessor(t *testing.T) {
 			repoCalledWith := make(chan primitive.ObjectID, 1)
 			// test projector with special error
 			eventRepository := &testEventRepository{
-				fetchByID: func(id primitive.ObjectID) (event, error) {
+				fetchByID: func(id primitive.ObjectID) (event.Event, error) {
 					repoCalledWith <- id
-					return event{}, errors.New("failed to fetch event by it's id")
+					return event.Event{}, errors.New("failed to fetch event by it's id")
 				},
 			}
 
@@ -109,8 +145,8 @@ func TestProcessor(t *testing.T) {
 
 			// event repo
 			eventRepository := &testEventRepository{
-				fetchByID: func(id primitive.ObjectID) (event, error) {
-					return event{Name: "unregistered.event"}, nil
+				fetchByID: func(id primitive.ObjectID) (event.Event, error) {
+					return event.Event{Name: "unregistered.event"}, nil
 				},
 			}
 
@@ -140,14 +176,14 @@ func TestProcessor(t *testing.T) {
 
 			// test
 			eventRepository := &testEventRepository{
-				fetchByID: func(id primitive.ObjectID) (event, error) {
-					return event{Name: "user.registered"}, nil
+				fetchByID: func(id primitive.ObjectID) (event.Event, error) {
+					return event.Event{Name: "user.registered"}, nil
 				},
 			}
 
 			// projector repository
 			projectorRepository := &testProjectorRepository{
-				outOfSyncBy: func(projector IProjector) (i int64, e error) {
+				outOfSyncBy: func(projector projector.IProjector) (i int64, e error) {
 					return 2, nil
 				},
 			}
@@ -165,10 +201,10 @@ func TestProcessor(t *testing.T) {
 			calledHandleOnProjector := make(chan struct{}, 1)
 			err = processorTestSet.projectorRegistry.Register(&testProjector{
 				name: "user.projector",
-				interestedInEvents: []IESEvent{
+				interestedInEvents: []event.IESEvent{
 					&testEvent{},
 				},
-				handleEvent: func(event IESEvent) error {
+				handleEvent: func(event event.IESEvent) error {
 					calledHandleOnProjector <- struct{}{}
 					return nil
 				},
@@ -204,17 +240,17 @@ func TestProcessor(t *testing.T) {
 
 			// test event repository
 			eventRepository := &testEventRepository{
-				fetchByID: func(id primitive.ObjectID) (event, error) {
-					return event{Name: "user.registered"}, nil
+				fetchByID: func(id primitive.ObjectID) (event.Event, error) {
+					return event.Event{Name: "user.registered"}, nil
 				},
 			}
 
 			// projector repository
 			projectorRepository := &testProjectorRepository{
-				outOfSyncBy: func(projector IProjector) (i int64, e error) {
+				outOfSyncBy: func(projector projector.IProjector) (i int64, e error) {
 					return 1, nil
 				},
-				updateLastHandledEvent: func(projector IProjector, event event) error {
+				updateLastHandledEvent: func(projector projector.IProjector, event event.Event) error {
 					panic("not supposed to call update last handled event")
 					return nil
 				},
@@ -232,10 +268,10 @@ func TestProcessor(t *testing.T) {
 			// register test projector
 			err = processorTestSet.projectorRegistry.Register(&testProjector{
 				name: "user.projector",
-				interestedInEvents: []IESEvent{
+				interestedInEvents: []event.IESEvent{
 					&testEvent{},
 				},
-				handleEvent: func(event IESEvent) error {
+				handleEvent: func(event event.IESEvent) error {
 					return errors.New("error during handling event")
 				},
 			})
@@ -261,18 +297,18 @@ func TestProcessor(t *testing.T) {
 
 			// test event repository
 			eventRepository := &testEventRepository{
-				fetchByID: func(id primitive.ObjectID) (event, error) {
-					return event{Name: "user.registered"}, nil
+				fetchByID: func(id primitive.ObjectID) (event.Event, error) {
+					return event.Event{Name: "user.registered"}, nil
 				},
 			}
 
 			// projector repository
 			updatedLastHandledEvent := make(chan struct{}, 1)
 			projectorRepository := &testProjectorRepository{
-				outOfSyncBy: func(projector IProjector) (i int64, e error) {
+				outOfSyncBy: func(projector projector.IProjector) (i int64, e error) {
 					return 1, nil
 				},
-				updateLastHandledEvent: func(projector IProjector, event event) error {
+				updateLastHandledEvent: func(projector projector.IProjector, event event.Event) error {
 					updatedLastHandledEvent <- struct{}{}
 					return nil
 				},
@@ -290,10 +326,10 @@ func TestProcessor(t *testing.T) {
 			// register test projector
 			err = processorTestSet.projectorRegistry.Register(&testProjector{
 				name: "user.projector",
-				interestedInEvents: []IESEvent{
+				interestedInEvents: []event.IESEvent{
 					&testEvent{},
 				},
-				handleEvent: func(event IESEvent) error {
+				handleEvent: func(event event.IESEvent) error {
 					return nil
 				},
 			})
@@ -346,8 +382,8 @@ func TestProcessor(t *testing.T) {
 
 			// mock event repository
 			eventRepo := &testEventRepository{
-				fetchByID: func(id primitive.ObjectID) (event, error) {
-					return event{
+				fetchByID: func(id primitive.ObjectID) (event.Event, error) {
+					return event.Event{
 						Name: "user.created",
 					}, nil
 				},
@@ -371,7 +407,7 @@ func TestProcessor(t *testing.T) {
 			// register event
 			calledReactor := make(chan struct{}, 1)
 			err = reactorRegistry.Register(&testReactor{
-				handle: func(event IESEvent) {
+				handle: func(event event.IESEvent) {
 					calledReactor <- struct{}{}
 				},
 				onEvent: "user.created",
@@ -390,8 +426,8 @@ func TestProcessor(t *testing.T) {
 
 			// mock event repository
 			eventRepo := &testEventRepository{
-				fetchByID: func(id primitive.ObjectID) (event, error) {
-					return event{
+				fetchByID: func(id primitive.ObjectID) (event.Event, error) {
+					return event.Event{
 						Name: "user.created",
 					}, nil
 				},
@@ -415,7 +451,7 @@ func TestProcessor(t *testing.T) {
 			// register event
 			calledReactor := make(chan struct{}, 1)
 			err = reactorRegistry.Register(&testReactor{
-				handle: func(event IESEvent) {
+				handle: func(event event.IESEvent) {
 					calledReactor <- struct{}{}
 				},
 				onEvent: "user.created",

@@ -2,6 +2,8 @@ package es
 
 import (
 	"context"
+	"github.com/florianlenz/event-sourcing-go/event"
+	"github.com/florianlenz/event-sourcing-go/projector"
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	. "github.com/smartystreets/goconvey/convey"
@@ -56,11 +58,11 @@ func TestReplay(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		// projector registry
-		projectorRegistry := NewProjectorRegistry()
+		projectorRegistry := projector.NewProjectorRegistry()
 
 		//  register test event
 		createdWithPayloadChan := make(chan map[string]interface{}, 2)
-		eventRegistry := NewEventRegistry()
+		eventRegistry := event.NewEventRegistry()
 
 		So(err, ShouldBeNil)
 

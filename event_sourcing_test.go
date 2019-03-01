@@ -3,11 +3,67 @@ package es
 import (
 	"context"
 	"errors"
+	"github.com/florianlenz/event-sourcing-go/event"
+	"github.com/florianlenz/event-sourcing-go/projector"
+	"github.com/florianlenz/event-sourcing-go/reactor"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
 )
+
+// test event repository
+type testEventRepository struct {
+	save      func(event *event.Event) error
+	fetchByID func(id primitive.ObjectID) (event.Event, error)
+	cb        func(eventID primitive.ObjectID)
+}
+
+func (r testEventRepository) Map(cb func(eventID primitive.ObjectID)) error {
+	r.cb = cb
+	return nil
+}
+
+func (r *testEventRepository) Save(event *event.Event) error {
+	return r.save(event)
+}
+
+func (r *testEventRepository) FetchByID(id primitive.ObjectID) (event.Event, error) {
+	return r.fetchByID(id)
+}
+
+type testEvent struct {
+	event.ESEvent
+}
+
+// test projector
+type testProjector struct {
+	name               string
+	interestedInEvents []event.IESEvent
+	handleEvent        func(event event.IESEvent) error
+}
+
+func (tp *testProjector) Name() string {
+	return tp.name
+}
+
+func (tp *testProjector) InterestedInEvents() []event.IESEvent {
+	return tp.interestedInEvents
+}
+
+func (tp *testProjector) Handle(event event.IESEvent) error {
+	return tp.handleEvent(event)
+}
+
+// test logger
+type testLogger struct {
+	errorChan chan error
+}
+
+func (l *testLogger) Error(error error) {
+	l.errorChan <- error
+}
 
 // @todo add test to make sure that out of sync check is enabled
 func TestEventSourcing(t *testing.T) {
@@ -34,25 +90,24 @@ func TestEventSourcing(t *testing.T) {
 			db, err := createDB()
 			So(err, ShouldBeNil)
 
-			projectorRegistry := NewProjectorRegistry()
-			eventRegistry := NewEventRegistry()
+			projectorRegistry := projector.NewProjectorRegistry()
+			eventRegistry := event.NewEventRegistry()
 
 			// persist event channel
-			persistedEventChan := make(chan *event, 1)
+			persistedEventChan := make(chan *event.Event, 1)
 
 			// create event sourcing
-			es := NewEventSourcing(nil, db, projectorRegistry, eventRegistry, NewReactorRegistry())
+			es := NewEventSourcing(nil, db, projectorRegistry, eventRegistry, reactor.NewReactorRegistry())
 			es.eventRepository = &testEventRepository{
-				save: func(event *event) error {
+				save: func(event *event.Event) error {
 					persistedEventChan <- event
 					return errors.New("i am a test error")
 				},
 			}
 
 			// test event to persist
-			testEvent := &testEvent{
-				version: 1,
-			}
+			testEvent := &testEvent{}
+			testEvent.ESEvent = event.NewESEvent(3333333, 2)
 
 			// commit event
 			So(es.Commit(testEvent, nil), ShouldBeError, "i am a test error")
@@ -63,7 +118,7 @@ func TestEventSourcing(t *testing.T) {
 			// ensure that the data is correct
 			// @todo So(persistedEvent.Name, ShouldEqual, testEvent.name)
 			//  @todo So(persistedEvent.Payload, ShouldResemble, testEvent.payload)
-			So(persistedEvent.Version, ShouldResemble, testEvent.version)
+			So(persistedEvent.Version, ShouldResemble, testEvent.Version())
 			So(persistedEvent.OccurredAt, ShouldResemble, time.Now().Unix())
 
 		})
@@ -75,8 +130,8 @@ func TestEventSourcing(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			// registries
-			projectorRegistry := NewProjectorRegistry()
-			eventRegistry := NewEventRegistry()
+			projectorRegistry := projector.NewProjectorRegistry()
+			eventRegistry := event.NewEventRegistry()
 
 			// register test projector
 			err = projectorRegistry.Register(&testProjector{
@@ -84,7 +139,7 @@ func TestEventSourcing(t *testing.T) {
 			})
 
 			// create event sourcing
-			es := NewEventSourcing(&testLogger{errorChan: make(chan error, 10)}, db, projectorRegistry, eventRegistry, NewReactorRegistry())
+			es := NewEventSourcing(&testLogger{errorChan: make(chan error, 10)}, db, projectorRegistry, eventRegistry, reactor.NewReactorRegistry())
 			es.Start()
 
 			// on processed channel
