@@ -35,9 +35,9 @@ func TestEventRepository(t *testing.T) {
 				db, err := createDB()
 				So(err, ShouldBeNil)
 
-				eventRepository := newEventRepository(db.Collection("events"))
+				eventRepository := NewEventRepository(db.Collection("events"))
 
-				event := &event{
+				event := &Event{
 					Name: "user.created",
 					Payload: map[string]interface{}{
 						"key": "value",
@@ -62,11 +62,11 @@ func TestEventRepository(t *testing.T) {
 
 				eventID := primitive.NewObjectID()
 
-				eventRepository := newEventRepository(db.Collection("events"))
+				eventRepository := NewEventRepository(db.Collection("events"))
 
 				fetchedEvent, err := eventRepository.FetchByID(eventID)
 				So(err, ShouldBeError, "mongo: no documents in result")
-				So(fetchedEvent, ShouldResemble, event{})
+				So(fetchedEvent, ShouldResemble, Event{})
 
 			})
 
@@ -76,10 +76,10 @@ func TestEventRepository(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				// event repo
-				eventRepository := newEventRepository(db.Collection("events"))
+				eventRepository := NewEventRepository(db.Collection("events"))
 
 				// event
-				e := &event{
+				e := &Event{
 					Name: "user.created",
 					Payload: map[string]interface{}{
 						"key": "value",
@@ -109,16 +109,16 @@ func TestEventRepository(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			// create event repository
-			eventRepository := newEventRepository(db.Collection("events"))
+			eventRepository := NewEventRepository(db.Collection("events"))
 
 			// persist events
-			firstEvent := &event{}
+			firstEvent := &Event{}
 			So(eventRepository.Save(firstEvent), ShouldBeNil)
 
-			secondEvent := &event{}
+			secondEvent := &Event{}
 			So(eventRepository.Save(secondEvent), ShouldBeNil)
 
-			thirdEvent := &event{}
+			thirdEvent := &Event{}
 			So(eventRepository.Save(thirdEvent), ShouldBeNil)
 
 			// mapped events channel

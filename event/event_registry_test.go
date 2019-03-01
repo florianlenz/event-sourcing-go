@@ -5,6 +5,10 @@ import (
 	"testing"
 )
 
+type testEvent struct {
+	ESEvent
+}
+
 func TestSpec(t *testing.T) {
 
 	Convey("event registry", t, func() {
@@ -44,7 +48,7 @@ func TestSpec(t *testing.T) {
 				registry := NewEventRegistry()
 
 				// register event
-				e, err := registry.EventToESEvent(event{
+				e, err := registry.EventToESEvent(Event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeError, "event with name 'user.created' hasn't been registered")
@@ -61,7 +65,7 @@ func TestSpec(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
-				esEvent, err := registry.EventToESEvent(event{
+				esEvent, err := registry.EventToESEvent(Event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeError, "attention! the creation of an event with name 'user.created' resulted in the creation of an event with name: 'wrong.event_name'")
@@ -81,7 +85,7 @@ func TestSpec(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				// try to create es event from event
-				transformedEvent, err := registry.EventToESEvent(event{
+				transformedEvent, err := registry.EventToESEvent(Event{
 					Name: "user.created",
 				})
 				So(err, ShouldBeNil)
