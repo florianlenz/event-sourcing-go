@@ -1,9 +1,34 @@
 package projector
 
 import (
+	"github.com/florianlenz/event-sourcing-go/event"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
+
+// test projector
+type testProjector struct {
+	name               string
+	interestedInEvents []event.IESEvent
+	handleEvent        func(event event.IESEvent) error
+}
+
+func (tp *testProjector) Name() string {
+	return tp.name
+}
+
+func (tp *testProjector) InterestedInEvents() []event.IESEvent {
+	return tp.interestedInEvents
+}
+
+func (tp *testProjector) Handle(event event.IESEvent) error {
+	return tp.handleEvent(event)
+}
+
+// test event
+type testEvent struct {
+	event.ESEvent
+}
 
 func TestProjectorRegistry(t *testing.T) {
 

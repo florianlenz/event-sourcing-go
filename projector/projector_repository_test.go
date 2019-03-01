@@ -2,6 +2,7 @@ package projector
 
 import (
 	"context"
+	"github.com/florianlenz/event-sourcing-go/event"
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -68,7 +69,7 @@ func TestProjectorRepository(t *testing.T) {
 					&testProjector{
 						name: "com.projector",
 					},
-					event{
+					event.Event{
 						ID: &eventID,
 					},
 				)
@@ -118,7 +119,7 @@ func TestProjectorRepository(t *testing.T) {
 				newEventID := primitive.NewObjectID()
 				err = projectorRepository.UpdateLastHandledEvent(
 					&testProjector{},
-					event{
+					event.Event{
 						ID: &newEventID,
 					},
 				)
@@ -166,7 +167,7 @@ func TestProjectorRepository(t *testing.T) {
 				firstUpdateEventID := primitive.NewObjectID()
 				err = projRepo.UpdateLastHandledEvent(
 					testProj,
-					event{
+					event.Event{
 						ID: &firstUpdateEventID,
 					},
 				)
@@ -176,7 +177,7 @@ func TestProjectorRepository(t *testing.T) {
 				secondUpdateEventID := primitive.NewObjectID()
 				err = projRepo.UpdateLastHandledEvent(
 					testProj,
-					event{
+					event.Event{
 						ID: &secondUpdateEventID,
 					},
 				)
@@ -219,7 +220,7 @@ func TestProjectorRepository(t *testing.T) {
 
 				outOfSyncBy, err := projectorRepo.OutOfSyncBy(&testProjector{
 					name:               "com.projector",
-					interestedInEvents: []IESEvent{},
+					interestedInEvents: []event.IESEvent{},
 				})
 				So(err, ShouldBeNil)
 				So(outOfSyncBy, ShouldEqual, 4)
@@ -255,11 +256,11 @@ func TestProjectorRepository(t *testing.T) {
 				// test projector
 				proj := testProjector{
 					name:               "com.projector",
-					interestedInEvents: []IESEvent{},
+					interestedInEvents: []event.IESEvent{},
 				}
 
 				// update last handled event
-				err = projectorRepo.UpdateLastHandledEvent(&proj, event{
+				err = projectorRepo.UpdateLastHandledEvent(&proj, event.Event{
 					ID: &lastIndexedEventID,
 				})
 				So(err, ShouldBeNil)
@@ -284,7 +285,7 @@ func TestProjectorRepository(t *testing.T) {
 			eventCollection := db.Collection("events")
 			projectorCollection := db.Collection("projectors")
 
-			projectorRepo := newProjectorRepository(eventCollection, projectorCollection, NewEventRegistry())
+			projectorRepo := NewProjectorRepository(eventCollection, projectorCollection, event.NewEventRegistry())
 
 			So(projectorRepo.eventCollection, ShouldEqual, eventCollection)
 			So(projectorRepo.projectorCollection, ShouldEqual, projectorCollection)
@@ -300,7 +301,7 @@ func TestProjectorRepository(t *testing.T) {
 			projectorCollection := db.Collection("projectors")
 
 			// projector repository
-			projectorRepository := newProjectorRepository(db.Collection("events"), projectorCollection, NewEventRegistry())
+			projectorRepository := NewProjectorRepository(db.Collection("events"), projectorCollection, event.NewEventRegistry())
 
 			// insert test projectors
 			_, err = db.Collection("projectors").InsertMany(context.Background(), []interface{}{
