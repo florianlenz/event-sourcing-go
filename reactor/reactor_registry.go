@@ -1,7 +1,7 @@
 package reactor
 
 import (
-	"errors"
+	"fmt"
 	"github.com/florianlenz/event-sourcing-go/event"
 	"reflect"
 	"sync"
@@ -22,7 +22,11 @@ type Registry struct {
 // Register a new reactor
 func (r *Registry) Register(reactor interface{}) error {
 
+	// reactor type
 	reactorType := reflect.TypeOf(reactor)
+	if reactorType.Kind() == reflect.Ptr {
+		reactorType = reactorType.Elem()
+	}
 
 	// lock the application
 	r.lock.Lock()
@@ -34,28 +38,9 @@ func (r *Registry) Register(reactor interface{}) error {
 	for _, registeredReactorCollection := range r.reactors {
 		for _, registeredReactor := range registeredReactorCollection {
 			if registeredReactor.eventType == reactorType {
-				return errors.New("reactor has already been registered")
+				return fmt.Errorf("reactor '%s' has already been registered", reactorType.Name())
 			}
 		}
-	}
-
-	if reactorType.Kind() != reflect.Struct {
-		return errors.New("reactor must be a struct")
-	}
-
-	method, exists := reactorType.MethodByName("Handle")
-	if !exists {
-		return errors.New("reactor must have a 'Handle' method")
-	}
-
-	if method.Type.NumIn() != 1 {
-		return errors.New("the reactors 'Handle' method must accept one parameter")
-	}
-
-	firstParameterType := method.Type.In(0)
-
-	if !firstParameterType.Implements(reflect.TypeOf(new(event.IESEvent))) {
-		return errors.New("the reactors 'Handle' method must take an implementation of IESEvent as it's first parameter")
 	}
 
 	// create reactor
@@ -63,6 +48,14 @@ func (r *Registry) Register(reactor interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	// ensure that reactor has a handle method
+	method, exists := reactorType.MethodByName("Handle")
+	if !exists {
+		return fmt.Errorf("reactor '%s' must have a 'Handle' method", reactorType.Name())
+	}
+
+	firstParameterType := method.Type.In(0)
 
 	// append reactor
 	r.reactors[reactorType] = append(r.reactors[reactorType], registeredReactor{
@@ -98,12 +91,8 @@ func (r *Registry) Reactors(event event.IESEvent) []reactor {
 }
 
 func NewReactorRegistry() *Registry {
-
-	r := &Registry{
+	return &Registry{
 		lock:     &sync.Mutex{},
 		reactors: map[reflect.Type][]registeredReactor{},
 	}
-
-	return r
-
 }

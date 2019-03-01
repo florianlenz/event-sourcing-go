@@ -16,7 +16,7 @@ func reactorFactory(reactor interface{}) (reactor, error) {
 
 	// exit if not a valid reactor
 	if reactorType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("reactor '%s' is not a struct", reactorType.Name())
+		return nil, fmt.Errorf("reactor '%s' must be a struct", reactorType.Name())
 	}
 
 	// get handle method
