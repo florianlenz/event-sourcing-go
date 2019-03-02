@@ -1,6 +1,7 @@
 package reactor
 
 import (
+	"errors"
 	"fmt"
 	"github.com/florianlenz/event-sourcing-go/event"
 	"reflect"
@@ -23,9 +24,17 @@ type Registry struct {
 func (r *Registry) Register(reactor interface{}) error {
 
 	// reactor type
-	reactorType := reflect.TypeOf(reactor)
-	if reactorType.Kind() == reflect.Ptr {
-		reactorType = reactorType.Elem()
+	reactorValue := reflect.ValueOf(reactor)
+	reactorType := reactorValue.Type()
+	reactorTypeElem := reactorType.Elem()
+	// @todo we have to pass in pointers in order to make it work. Google why we have too. I am not quite sure.
+	if reactorType.Kind() != reflect.Ptr {
+		return errors.New("invalid reactor - you have to pass in a pointer to the reactor")
+	}
+
+	// exit if not a valid reactor
+	if reactorTypeElem.Kind() != reflect.Struct {
+		return fmt.Errorf("reactor '%s' must be a struct", reactorTypeElem.Name())
 	}
 
 	// lock the application
@@ -38,29 +47,39 @@ func (r *Registry) Register(reactor interface{}) error {
 	for _, registeredReactorCollection := range r.reactors {
 		for _, registeredReactor := range registeredReactorCollection {
 			if registeredReactor.eventType == reactorType {
-				return fmt.Errorf("reactor '%s' has already been registered", reactorType.Name())
+				return fmt.Errorf("reactor '%s' has already been registered", reactorTypeElem.Name())
 			}
 		}
 	}
 
-	// create reactor
-	cratedReactor, err := reactorFactory(reactor)
-	if err != nil {
-		return err
-	}
-
-	// ensure that reactor has a handle method
-	method, exists := reactorType.MethodByName("Handle")
+	// get handle method
+	handleMethod, exists := reactorType.MethodByName("Handle")
 	if !exists {
-		return fmt.Errorf("reactor '%s' must have a 'Handle' method", reactorType.Name())
+		return fmt.Errorf("reactor '%s' doesn't have a 'Handle' method", reactorTypeElem.Name())
 	}
 
-	firstParameterType := method.Type.In(0)
+	// ensure that the handle method expects one argument
+	// @todo figure out why this is two - makes no sense except for if the receiver is counted as an parameter too
+	if handleMethod.Type.NumIn() != 2 {
+		return fmt.Errorf("the handle method of reactor %s must expect exactly one parameter", reactorTypeElem.Name())
+	}
+
+	// ensure that the expected argument is an implementation of IESEvent
+	handleMethodParameterType := handleMethod.Type.In(1)
+	if !handleMethodParameterType.Implements(reflect.TypeOf((*event.IESEvent)(nil)).Elem()) {
+		return fmt.Errorf("the handle method expects '%s' which is not an IESImplementation", handleMethodParameterType.Name())
+	}
+
+	firstParameterType := handleMethod.Type.In(0)
 
 	// append reactor
 	r.reactors[reactorType] = append(r.reactors[reactorType], registeredReactor{
 		eventType: firstParameterType,
-		reactor:   cratedReactor,
+		reactor: func(event event.IESEvent) {
+			reactorValue.MethodByName("Handle").Call([]reflect.Value{
+				reflect.ValueOf(event),
+			})
+		},
 	})
 
 	return nil
