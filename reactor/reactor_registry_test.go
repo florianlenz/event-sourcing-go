@@ -6,36 +6,54 @@ import (
 	"testing"
 )
 
+// test reactor with invalid handle method to test certain behaviour
 type testReactorWithInvalidHandleMethod struct {
 }
 
-func (r *testReactorWithInvalidHandleMethod) Handle(val string) {
+func (r *testReactorWithInvalidHandleMethod) Handle(val string) {}
 
-}
-
+// test reactor with invalid amount of parameters to test the case where we receive an invalid amount of arguments for the handler function
 type testReactorWithTooManyParamsInHandleFunction struct {
 }
 
 func (r *testReactorWithTooManyParamsInHandleFunction) Handle(firstArg interface{}, secondArg interface{}) {
-
 }
 
-type testEvent struct {
+// test event one
+type testEventOne struct {
 	event.ESEvent
 }
 
-type testReactor struct {
+// test event two
+type testEventTwo struct {
+	event.ESEvent
 }
 
-func (r *testReactor) Handle(e testEvent) {
-
+// test reactor one
+type testReactorOne struct {
+	handle func(testEventOne)
 }
 
-type anotherTestReactor struct {
+func (r *testReactorOne) Handle(e testEventOne) {
+	r.handle(e)
 }
 
-func (r *anotherTestReactor) Handle(e testEvent) {
+// test reactor two
+type testReactorTwo struct {
+	handle func(e testEventTwo)
+}
 
+func (r *testReactorTwo) Handle(e testEventTwo) {
+	r.handle(e)
+}
+
+// test reactor three
+type testReactorThree struct {
+	handle func(e testEventTwo)
+}
+
+func (r *testReactorThree) Handle(e testEventTwo) {
+	r.handle(e)
 }
 
 func TestReactorRegistry(t *testing.T) {
@@ -69,16 +87,63 @@ func TestReactorRegistry(t *testing.T) {
 
 			Convey("register successfully", func() {
 				rr := NewReactorRegistry()
-				So(rr.Register(&testReactor{}), ShouldBeNil)
+				So(rr.Register(&testReactorOne{}), ShouldBeNil)
 			})
 
 			Convey("can't register reactor twice", func() {
 
 				rr := NewReactorRegistry()
 
-				So(rr.Register(&testReactor{}), ShouldBeNil)
-				So(rr.Register(&testReactor{}), ShouldBeError, "reactor 'testReactor' has already been registered")
-				So(rr.Register(&testReactor{}), ShouldBeError, "reactor 'testReactor' has already been registered")
+				So(rr.Register(&testReactorOne{}), ShouldBeNil)
+				So(rr.Register(&testReactorOne{}), ShouldBeError, "reactor 'testReactorOne' has already been registered")
+				So(rr.Register(&testReactorOne{}), ShouldBeError, "reactor 'testReactorOne' has already been registered")
+
+			})
+
+		})
+
+		Convey("reactors", func() {
+
+			Convey("fetch reactors", func() {
+
+				rr := NewReactorRegistry()
+
+				// channels where we will receive the signals
+				handledReactorOne := false
+				handledReactorTwo := false
+				handledReactorThree := false
+
+				// register reactors
+				So(rr.Register(&testReactorOne{
+					handle: func(e testEventOne) {
+						handledReactorOne = true
+					},
+				}), ShouldBeNil)
+
+				So(rr.Register(&testReactorTwo{
+					handle: func(e testEventTwo) {
+						handledReactorTwo = true
+					},
+				}), ShouldBeNil)
+
+				So(rr.Register(&testReactorThree{
+					handle: func(e testEventTwo) {
+						handledReactorThree = true
+					},
+				}), ShouldBeNil)
+
+				// fetch reactors for test event two
+				for _, reactor := range rr.Reactors(testEventOne{}) {
+					reactor(testEventOne{})
+				}
+				So(handledReactorOne, ShouldBeTrue)
+
+				// fetch reactors for event two
+				for _, reactor := range rr.Reactors(testEventTwo{}) {
+					reactor(testEventTwo{})
+				}
+				So(handledReactorTwo, ShouldBeTrue)
+				So(handledReactorThree, ShouldBeTrue)
 
 			})
 

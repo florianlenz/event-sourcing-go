@@ -10,14 +10,9 @@ import (
 
 type reactor = func(event event.IESEvent)
 
-type registeredReactor struct {
-	eventType reflect.Type
-	reactor   reactor
-}
-
 type Registry struct {
 	lock     *sync.Mutex
-	reactors map[reflect.Type][]registeredReactor
+	reactors map[reflect.Type][]reflect.Value
 }
 
 // Register a new reactor
@@ -26,11 +21,11 @@ func (r *Registry) Register(reactor interface{}) error {
 	// reactor type
 	reactorValue := reflect.ValueOf(reactor)
 	reactorType := reactorValue.Type()
-	reactorTypeElem := reactorType.Elem()
 	// @todo we have to pass in pointers in order to make it work. Google why we have too. I am not quite sure.
 	if reactorType.Kind() != reflect.Ptr {
 		return errors.New("invalid reactor - you have to pass in a pointer to the reactor")
 	}
+	reactorTypeElem := reactorType.Elem()
 
 	// exit if not a valid reactor
 	if reactorTypeElem.Kind() != reflect.Struct {
@@ -44,9 +39,9 @@ func (r *Registry) Register(reactor interface{}) error {
 	}()
 
 	// ensure that reactor hasn't been added
-	for _, registeredReactorCollection := range r.reactors {
-		for _, registeredReactor := range registeredReactorCollection {
-			if registeredReactor.eventType == reactorType {
+	for _, reactors := range r.reactors {
+		for _, reactor := range reactors {
+			if reactor.Type() == reactorType {
 				return fmt.Errorf("reactor '%s' has already been registered", reactorTypeElem.Name())
 			}
 		}
@@ -70,24 +65,15 @@ func (r *Registry) Register(reactor interface{}) error {
 		return fmt.Errorf("the handle method expects '%s' which is not an IESImplementation", handleMethodParameterType.Name())
 	}
 
-	firstParameterType := handleMethod.Type.In(0)
-
 	// append reactor
-	r.reactors[reactorType] = append(r.reactors[reactorType], registeredReactor{
-		eventType: firstParameterType,
-		reactor: func(event event.IESEvent) {
-			reactorValue.MethodByName("Handle").Call([]reflect.Value{
-				reflect.ValueOf(event),
-			})
-		},
-	})
+	r.reactors[handleMethodParameterType] = append(r.reactors[handleMethodParameterType], reactorValue)
 
 	return nil
 
 }
 
 // Fetch reactors for event
-func (r *Registry) Reactors(event event.IESEvent) []reactor {
+func (r *Registry) Reactors(e event.IESEvent) []reactor {
 
 	// lock
 	r.lock.Lock()
@@ -96,13 +82,21 @@ func (r *Registry) Reactors(event event.IESEvent) []reactor {
 	}()
 
 	// event type
-	eventType := reflect.TypeOf(event)
+	eventType := reflect.TypeOf(e)
+
+	// reactor type factory
+	reactorTypeFactory := func(reactor reflect.Value) reactor {
+		return func(event event.IESEvent) {
+			reactor.MethodByName("Handle").Call([]reflect.Value{
+				reflect.ValueOf(event),
+			})
+		}
+	}
 
 	// get reactors for event type
 	reactors := []reactor{}
-	registeredReactors := r.reactors[eventType]
-	for _, registeredReactor := range registeredReactors {
-		reactors = append(reactors, registeredReactor.reactor)
+	for _, reactorValue := range r.reactors[eventType] {
+		reactors = append(reactors, reactorTypeFactory(reactorValue))
 	}
 
 	return reactors
@@ -112,6 +106,6 @@ func (r *Registry) Reactors(event event.IESEvent) []reactor {
 func NewReactorRegistry() *Registry {
 	return &Registry{
 		lock:     &sync.Mutex{},
-		reactors: map[reflect.Type][]registeredReactor{},
+		reactors: map[reflect.Type][]reflect.Value{},
 	}
 }
