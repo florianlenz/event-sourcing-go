@@ -6,52 +6,20 @@ import (
 	"reflect"
 )
 
-// check if the IESEvent implementation supports the "Factory" function
-func doesEventHasValidFactoryMethod(event IESEvent) error {
+func validatePayloadField(event IESEvent) error {
 
 	eventType := reflect.TypeOf(event)
 
-	if eventType.Kind() == reflect.Ptr {
-		eventType = eventType.Elem()
+	field, found := eventType.FieldByNameFunc(func(s string) bool {
+		return s == "Payload"
+	})
+
+	if !found {
+		return fmt.Errorf("failed to find Payload field in event: '%s'", eventType.Name())
 	}
 
-	// exit if doesn't implement a factory method at all
-	method, exists := eventType.MethodByName("Factory")
-	if !exists {
-		return fmt.Errorf("event '%s' doesn't support 'Factory' method", eventType.Name())
-	}
-
-	// the Factory method is supposed to expect two arguments
-	if 2 != eventType.NumIn() {
-		return fmt.Errorf("the 'Factory' method of event '%s' should expect two parameters (first param = instance of ESEvent | second param = instance of the event payload", eventType.Name())
-	}
-
-	// exit with invalid return arguments
-	if 1 != eventType.NumOut() {
-		return fmt.Errorf("the 'Factory' method of event: '%s' must return an instance of a struct that implements IESEvent interface", eventType.Name())
-	}
-
-	// ensure that the first expected arg is of type ESEvent
-	firstIn := method.Type.In(0)
-	if firstIn != reflect.TypeOf(ESEvent{}) {
-		return fmt.Errorf("the first expected parameter of the %s Factory method should be ESEvent - got %s", eventType.Name(), firstIn.Name())
-	}
-
-	// payload
-	payloadType, err := eventPayloadType(event)
-	if err != nil {
-		return err
-	}
-
-	// ensure that the second expected arg is of the same type as the payload property
-	secondIn := method.Type.In(1)
-	if secondIn != payloadType {
-		return fmt.Errorf("the second expected paramter type in the '%s' Factory method should be %s - got %s", eventType.Name(), payloadType.Name(), secondIn.Name())
-	}
-
-	// ensure that the struct returned from new is the same struct as the implementation of the passed event
-	if method.Type.Out(0) != eventType {
-		return fmt.Errorf("the Factory method of '%s' must return an instance of '%s'", eventType.Name(), eventType.Name())
+	if field.Type.Kind() == reflect.Ptr {
+		return fmt.Errorf("payload of event: '%s' must not be a pointer", eventType.Name())
 	}
 
 	return nil
@@ -158,14 +126,26 @@ func MarshalEventPayload(event IESEvent) (map[string]interface{}, error) {
 }
 
 // create payload type from payload
-func payloadMapToPayload(payloadType reflect.Type, payload map[string]interface{}) (reflect.Value, error) {
+func payloadMapToPayload(event IESEvent, payload map[string]interface{}) (reflect.Value, error) {
 
-	v := reflect.New(payloadType)
+	// validate event payload
+	eventType := reflect.TypeOf(event)
+	payloadField, exists := eventType.FieldByName("Payload")
+	if !exists {
+		panic("payload must exist")
+	}
 
-	for i := 0; i < v.NumField(); i++ {
+	payloadType := payloadField.Type
+
+	newPayload := reflect.New(payloadType)
+	if newPayload.Kind() == reflect.Ptr {
+		newPayload = newPayload.Elem()
+	}
+
+	for i := 0; i < payloadType.NumField(); i++ {
 
 		// value field
-		field := v.Field(i)
+		field := newPayload.Field(i)
 
 		// type field
 		typeField := payloadType.Field(i)
@@ -219,37 +199,30 @@ func payloadMapToPayload(payloadType reflect.Type, payload map[string]interface{
 
 	}
 
-	return v, nil
+	return newPayload, nil
 
 }
 
-func callEventFactoryMethod(esEvent IESEvent, persistedEvent Event) (IESEvent, error) {
+func createIESEvent(esEvent IESEvent, persistedEvent Event) (IESEvent, error) {
 
-	eventType := reflect.TypeOf(esEvent)
-
-	// fetch method
-	method, exists := eventType.MethodByName("Factory")
-	if !exists {
-		return nil, errors.New("the event implementation is missing the factory function - please add exported Factory function to your event")
+	// create new event instance
+	newEvent := reflect.New(reflect.TypeOf(esEvent))
+	if newEvent.Kind() == reflect.Ptr {
+		newEvent = newEvent.Elem()
 	}
 
-	// get payload type
-	payloadType, err := eventPayloadType(esEvent)
+	// set payload field
+	payload, err := payloadMapToPayload(esEvent, persistedEvent.Payload)
 	if err != nil {
 		return nil, err
 	}
+	payloadField := newEvent.FieldByName("Payload")
+	payloadField.Set(payload)
 
-	// compose Factory arguments
-	funcArgs := []reflect.Value{
-		reflect.ValueOf(NewESEvent(persistedEvent.OccurredAt, persistedEvent.Version)),
-		reflect.ValueOf(payloadType),
-	}
+	// @todo add ESEvent creation
 
-	out := method.Func.Call(funcArgs)
-
-	createdEventValue := out[0]
-
-	createdEvent, k := createdEventValue.Interface().(IESEvent)
+	// cast event to IESEvent
+	createdEvent, k := newEvent.Interface().(IESEvent)
 	if !k {
 		return nil, errors.New("created event doesn't match the expected event")
 	}

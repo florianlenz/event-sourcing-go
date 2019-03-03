@@ -5,8 +5,12 @@ import (
 	"testing"
 )
 
+type testEventPayload struct {
+}
+
 type testEvent struct {
 	ESEvent
+	Payload testEventPayload
 }
 
 func TestSpec(t *testing.T) {
@@ -25,7 +29,7 @@ func TestSpec(t *testing.T) {
 
 				// second attempt
 				err = registry.RegisterEvent("user.registered", testEvent{})
-				So(err, ShouldBeError, "event with name 'user.registered' got already registered")
+				So(err, ShouldBeError, "user.registered has already been registered")
 
 			})
 
@@ -47,38 +51,18 @@ func TestSpec(t *testing.T) {
 
 				registry := NewEventRegistry()
 
-				// register event
+				// try to convert event
 				e, err := registry.EventToESEvent(Event{
 					Name: "user.created",
 				})
-				So(err, ShouldBeError, "event with name 'user.created' hasn't been registered")
+				So(err, ShouldBeError, "event 'user.created' hasn't been registered")
 				So(e, ShouldBeNil)
-
-			})
-
-			Convey("should return error if the transformed event is has a different name than the persisted event", func() {
-
-				registry := NewEventRegistry()
-
-				// register event
-				err := registry.RegisterEvent("user.created", testEvent{})
-				So(err, ShouldBeNil)
-
-				// try to create es event from event
-				esEvent, err := registry.EventToESEvent(Event{
-					Name: "user.created",
-				})
-				So(err, ShouldBeError, "attention! the creation of an event with name 'user.created' resulted in the creation of an event with name: 'wrong.event_name'")
-				So(esEvent, ShouldBeNil)
 
 			})
 
 			Convey("transform event successfully", func() {
 
 				registry := NewEventRegistry()
-
-				// test event
-				esEvent := &testEvent{}
 
 				// register event
 				err := registry.RegisterEvent("user.created", testEvent{})
@@ -89,7 +73,33 @@ func TestSpec(t *testing.T) {
 					Name: "user.created",
 				})
 				So(err, ShouldBeNil)
-				So(transformedEvent, ShouldEqual, esEvent)
+				So(transformedEvent, ShouldResemble, testEvent{})
+
+			})
+
+		})
+
+		Convey("get event name", func() {
+
+			Convey("with registered event", func() {
+
+				rr := NewEventRegistry()
+
+				So(rr.RegisterEvent("user.created", testEvent{}), ShouldBeNil)
+
+				eventName, err := rr.GetEventName(&testEvent{})
+				So(err, ShouldBeNil)
+				So(eventName, ShouldEqual, "user.created")
+
+			})
+
+			Convey("with event that hasn't been registered", func() {
+
+				rr := NewEventRegistry()
+
+				eventName, err := rr.GetEventName(testEvent{})
+				So(err, ShouldBeError, "event hasn't been registered")
+				So(eventName, ShouldEqual, "")
 
 			})
 

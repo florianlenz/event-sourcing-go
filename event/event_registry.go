@@ -7,11 +7,22 @@ import (
 	"sync"
 )
 
+// the public registry it self
+type Registry struct {
+	lock             *sync.Mutex
+	registeredEvents map[string]IESEvent
+}
+
 // register an new event with it's factory (factory = function that creates the event)
 func (r *Registry) RegisterEvent(eventName string, event IESEvent) error {
 
-	//  validate event's "New" method
-	if err := doesEventHasValidFactoryMethod(event); err != nil {
+	// ensure that the event is registered as non pointer
+	if reflect.TypeOf(event).Kind() == reflect.Ptr {
+		return errors.New("can't register pointer")
+	}
+
+	//  ensure that event has exported payload filed
+	if err := validatePayloadField(event); err != nil {
 		return err
 	}
 
@@ -36,6 +47,9 @@ func (r *Registry) RegisterEvent(eventName string, event IESEvent) error {
 func (r *Registry) GetEventName(event IESEvent) (string, error) {
 
 	eventType := reflect.TypeOf(event)
+	if eventType.Kind() == reflect.Ptr {
+		eventType = eventType.Elem()
+	}
 
 	// lock
 	r.lock.Lock()
@@ -45,6 +59,7 @@ func (r *Registry) GetEventName(event IESEvent) (string, error) {
 
 	for eventName, registeredEvent := range r.registeredEvents {
 
+		// event type
 		registeredEventType := reflect.TypeOf(registeredEvent)
 
 		if registeredEventType == eventType {
@@ -53,7 +68,7 @@ func (r *Registry) GetEventName(event IESEvent) (string, error) {
 
 	}
 
-	return "", errors.New("couldn't find event name for event")
+	return "", errors.New("event hasn't been registered")
 
 }
 
@@ -68,18 +83,12 @@ func (r *Registry) EventToESEvent(e Event) (IESEvent, error) {
 	// fetch registered event
 	esEvent, exists := r.registeredEvents[e.Name]
 	if !exists {
-		return nil, fmt.Errorf("an event struct for event with name: %s hasn't been registered", esEvent)
+		return nil, fmt.Errorf("event '%s' hasn't been registered", e.Name)
 	}
 
 	// get the events payload type
-	return callEventFactoryMethod(esEvent, e)
+	return createIESEvent(esEvent, e)
 
-}
-
-// the public registry it self
-type Registry struct {
-	lock             *sync.Mutex
-	registeredEvents map[string]IESEvent
 }
 
 func NewEventRegistry() *Registry {
