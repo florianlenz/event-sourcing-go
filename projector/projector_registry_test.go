@@ -50,7 +50,7 @@ func TestProjectorRegistry(t *testing.T) {
 				err = registry.Register(&testProjector{
 					name: "user.projector",
 				})
-				So(err, ShouldBeError, "projector with name 'user.projector' already registered")
+				So(err, ShouldBeError, "projector with id: 'user.projector' has already been registered")
 
 			})
 
@@ -64,6 +64,10 @@ func TestProjectorRegistry(t *testing.T) {
 					name: "user.projector",
 				})
 				So(err, ShouldBeNil)
+
+			})
+
+			Convey("shouldn't be able to register event class twice with different name", func() {
 
 			})
 

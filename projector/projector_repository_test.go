@@ -10,6 +10,36 @@ import (
 	"testing"
 )
 
+type payload struct {
+}
+
+type testEventUserCreated struct {
+	event.ESEvent
+	Payload payload
+}
+
+func (e *testEventUserCreated) Factory() {
+
+}
+
+type testEventUserUpdated struct {
+	event.ESEvent
+	Payload payload
+}
+
+func (e *testEventUserUpdated) Factory() {
+
+}
+
+type testEventUserDeleted struct {
+	event.ESEvent
+	Payload payload
+}
+
+func (e *testEventUserDeleted) Factory() {
+
+}
+
 func TestProjectorRepository(t *testing.T) {
 
 	Convey("test projector repository", t, func() {
@@ -204,6 +234,12 @@ func TestProjectorRepository(t *testing.T) {
 				eventCollection := db.Collection("events")
 				projectorCollection := db.Collection("projectors")
 
+				// event registry
+				eventRegistry := event.NewEventRegistry()
+				So(eventRegistry.RegisterEvent("user.created", testEventUserCreated{}), ShouldBeNil)
+				So(eventRegistry.RegisterEvent("user.updated", testEventUserUpdated{}), ShouldBeNil)
+				So(eventRegistry.RegisterEvent("user.deleted", testEventUserDeleted{}), ShouldBeNil)
+
 				// create tests events
 				eventFactory(eventCollection, "user.created")
 				eventFactory(eventCollection, "user.updated")
@@ -216,11 +252,15 @@ func TestProjectorRepository(t *testing.T) {
 				projectorRepo := &projectorRepository{
 					eventCollection:     eventCollection,
 					projectorCollection: projectorCollection,
+					eventRegistry:       eventRegistry,
 				}
 
 				outOfSyncBy, err := projectorRepo.OutOfSyncBy(&testProjector{
-					name:               "com.projector",
-					interestedInEvents: []event.IESEvent{},
+					name: "com.projector",
+					interestedInEvents: []event.IESEvent{
+						testEventUserCreated{},
+						testEventUserUpdated{},
+					},
 				})
 				So(err, ShouldBeNil)
 				So(outOfSyncBy, ShouldEqual, 4)
@@ -237,6 +277,13 @@ func TestProjectorRepository(t *testing.T) {
 				eventCollection := db.Collection("events")
 				projectorCollection := db.Collection("projectors")
 
+				// event registry
+				eventRegistry := event.NewEventRegistry()
+				So(eventRegistry.RegisterEvent("user.updated", testEventUserUpdated{}), ShouldBeNil)
+				So(eventRegistry.RegisterEvent("user.created", testEventUserCreated{}), ShouldBeNil)
+				// it's important to register the deleted event since we want to make sure that events we didn't subscribed to are not handled
+				So(eventRegistry.RegisterEvent("user.deleted", testEventUserDeleted{}), ShouldBeNil)
+
 				// create tests events
 				eventFactory(eventCollection, "user.created")
 				lastIndexedEventID := eventFactory(eventCollection, "user.created")
@@ -251,12 +298,16 @@ func TestProjectorRepository(t *testing.T) {
 				projectorRepo := &projectorRepository{
 					eventCollection:     eventCollection,
 					projectorCollection: projectorCollection,
+					eventRegistry:       eventRegistry,
 				}
 
 				// test projector
 				proj := testProjector{
-					name:               "com.projector",
-					interestedInEvents: []event.IESEvent{},
+					name: "com.projector",
+					interestedInEvents: []event.IESEvent{
+						testEventUserCreated{},
+						testEventUserUpdated{},
+					},
 				}
 
 				// update last handled event

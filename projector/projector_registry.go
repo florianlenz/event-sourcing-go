@@ -23,7 +23,7 @@ func (r *Registry) Register(projector IProjector) error {
 	// ensure that projector hasn't been added
 	_, exists := r.projectors[projector.Name()]
 	if exists {
-		return fmt.Errorf("projector with id: %s has already been registered", projector.Name())
+		return fmt.Errorf("projector with id: '%s' has already been registered", projector.Name())
 	}
 
 	r.projectors[projector.Name()] = projector
