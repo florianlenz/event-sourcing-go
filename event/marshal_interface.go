@@ -2,7 +2,7 @@ package event
 
 type Marshal interface {
 	// marshal
-	Unmarshal(params map[string]interface{}) error
+	Unmarshal(content interface{}) error
 	// unmarshal
-	Marshal() (map[string]interface{}, error)
+	Marshal() (interface{}, error)
 }

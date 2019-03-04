@@ -1,10 +1,31 @@
 package event
 
 import (
+	"errors"
 	. "github.com/smartystreets/goconvey/convey"
 	"reflect"
 	"testing"
 )
+
+type testUsername struct {
+	username string
+}
+
+func (u *testUsername) Marshal() (interface{}, error) {
+	return u.username, nil
+}
+
+func (u *testUsername) Unmarshal(param interface{}) error {
+
+	un, k := param.(string)
+	if !k {
+		return errors.New("expected string")
+	}
+
+	u.username = un
+
+	return nil
+}
 
 func TestUtils(t *testing.T) {
 
@@ -70,38 +91,401 @@ func TestUtils(t *testing.T) {
 
 		})
 
-		Convey("does event has valid factory method", func() {
+		Convey("event payload to map", func() {
 
-			Convey("has valid factory method (with pointer passed as event reference)", func() {
+			Convey("types", func() {
+
+				Convey("String", func() {
+
+					type Payload struct {
+						Name string `es:"name"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					marshaledContent, err := PayloadToMap(event{
+						Payload: Payload{
+							Name: "Jens",
+						},
+					})
+					So(err, ShouldBeNil)
+					So(marshaledContent, ShouldResemble, map[string]interface{}{
+						"name": "Jens",
+					})
+
+				})
+
+				Convey("Bool", func() {
+
+					type Payload struct {
+						Created bool `es:"created"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					marshaledContent, err := PayloadToMap(event{
+						Payload: Payload{
+							Created: false,
+						},
+					})
+					So(err, ShouldBeNil)
+					So(marshaledContent, ShouldResemble, map[string]interface{}{
+						"created": false,
+					})
+
+				})
+
+				Convey("Int", func() {
+
+					type Payloadd struct {
+						Age int `es:"age"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payloadd
+					}
+
+					marshaledContent, err := PayloadToMap(event{
+						Payload: Payloadd{
+							Age: 5,
+						},
+					})
+					So(err, ShouldBeNil)
+					So(marshaledContent, ShouldResemble, map[string]interface{}{
+						"age": 5,
+					})
+
+				})
+
+				Convey("Uint", func() {
+
+					type Payload struct {
+						Age uint `es:"age"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					marshaledContent, err := PayloadToMap(event{
+						Payload: Payload{
+							Age: 39,
+						},
+					})
+					So(err, ShouldBeNil)
+					So(marshaledContent["age"], ShouldEqual, 39)
+
+				})
+
+				Convey("Float32", func() {
+
+					type Payload struct {
+						Weight float32 `es:"weight"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					marshaledContent, err := PayloadToMap(event{
+						Payload: Payload{
+							Weight: 3.2,
+						},
+					})
+					So(err, ShouldBeNil)
+					So(marshaledContent["weight"], ShouldAlmostEqual, float64(3.2), .0000001)
+
+				})
+
+				Convey("Float64", func() {
+
+					type Payload struct {
+						Weight float64 `es:"weight"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					marshaledContent, err := PayloadToMap(event{
+						Payload: Payload{
+							Weight: 39399939.333,
+						},
+					})
+					So(err, ShouldBeNil)
+					So(marshaledContent, ShouldResemble, map[string]interface{}{
+						"weight": 39399939.333,
+					})
+
+				})
+
+				Convey("Struct", func() {
+
+					Convey("struct that doesn't support the Marshal interface", func() {
+
+					})
+
+					Convey("marshal successful", func() {
+
+						type Payload struct {
+							Username testUsername `es:"username"`
+						}
+
+						type event struct {
+							ESEvent
+							Payload Payload
+						}
+
+						marshaledContent, err := PayloadToMap(event{
+							Payload: Payload{
+								Username: testUsername{
+									username: "hans_peter",
+								},
+							},
+						})
+						So(err, ShouldBeNil)
+						So(marshaledContent, ShouldResemble, map[string]interface{}{
+							"username": "hans_peter",
+						})
+
+					})
+
+				})
 
 			})
 
-			Convey("has valid factory method", func() {
+			Convey("pointer to event", func() {
+
+				type Payload struct {
+					Name string `es:"name"`
+				}
+
+				type event struct {
+					ESEvent
+					Payload Payload
+				}
+
+				marshaledContent, err := PayloadToMap(&event{
+					Payload: Payload{
+						Name: "Jens",
+					},
+				})
+				So(err, ShouldBeNil)
+				So(marshaledContent, ShouldResemble, map[string]interface{}{
+					"name": "Jens",
+				})
 
 			})
 
-			Convey("exit if factory method doesn't exist", func() {
+			Convey("missing 'es' tag in payload struct", func() {
+
+				type Payload struct {
+					Name string
+				}
+
+				type event struct {
+					ESEvent
+					Payload Payload
+				}
+
+				marshaledContent, err := PayloadToMap(event{
+					Payload: Payload{
+						Name: "Jens",
+					},
+				})
+				So(err, ShouldBeError, "missing 'es' tag in events payload field (event: 'event', payload field: 'Name')")
+				So(marshaledContent, ShouldBeNil)
 
 			})
 
-			Convey("factory method must expect two parameters", func() {
+			Convey("unexported payload field", func() {
 
 			})
 
-			// @todo is argument correct for the returned value?
-			Convey("factory method must return exactly one argument", func() {
+		})
 
-			})
+		Convey("payload map to payload", func() {
 
-			Convey("the first expected parameter of the factory method must be of type ESEvent", func() {
+			Convey("types", func() {
 
-			})
+				Convey("String", func() {
 
-			Convey("the second expected parameter of the factory method must be of the payload type", func() {
+					type Payload struct {
+						Name string `es:"name"`
+					}
 
-			})
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
 
-			Convey("the returned argument must be the same type as the event", func() {
+					e, err := createIESEvent(event{}, Event{
+						Payload: map[string]interface{}{
+							"name": "Hans",
+						},
+					})
+					So(err, ShouldBeNil)
+					esEvent := e.(event)
+
+					So(esEvent.Payload.Name, ShouldEqual, "Hans")
+
+				})
+
+				Convey("Bool", func() {
+
+					type Payload struct {
+						Created bool `es:"created"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					e, err := createIESEvent(event{}, Event{
+						Payload: map[string]interface{}{
+							"created": false,
+						},
+					})
+					So(err, ShouldBeNil)
+					esEvent := e.(event)
+
+					So(esEvent.Payload.Created, ShouldBeFalse)
+
+				})
+
+				Convey("Int", func() {
+
+					type Payload struct {
+						Age int `es:"age"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					// create event from payload
+					e, err := createIESEvent(event{}, Event{
+						Payload: map[string]interface{}{
+							"age": 55,
+						},
+					})
+					So(err, ShouldBeNil)
+					esEvent := e.(event)
+
+					So(esEvent.Payload.Age, ShouldEqual, 55)
+
+				})
+
+				Convey("Uint", func() {
+
+					type Payload struct {
+						Age uint `es:"age"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					// create event from payload
+					e, err := createIESEvent(event{}, Event{
+						Payload: map[string]interface{}{
+							"age": uint(22),
+						},
+					})
+					So(err, ShouldBeNil)
+					esEvent := e.(event)
+
+					So(esEvent.Payload.Age, ShouldEqual, 22)
+
+				})
+
+				Convey("Float32", func() {
+
+					type Payload struct {
+						Price float32 `es:"price"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					// create event from payload
+					e, err := createIESEvent(event{}, Event{
+						Payload: map[string]interface{}{
+							"price": 10.30,
+						},
+					})
+					So(err, ShouldBeNil)
+					esEvent := e.(event)
+
+					So(esEvent.Payload.Price, ShouldAlmostEqual, 10.30, .000001)
+
+				})
+
+				Convey("Float64", func() {
+
+					type Payload struct {
+						Price float64 `es:"price"`
+					}
+
+					type event struct {
+						ESEvent
+						Payload Payload
+					}
+
+					// create event from payload
+					e, err := createIESEvent(event{}, Event{
+						Payload: map[string]interface{}{
+							"price": 11.30,
+						},
+					})
+					So(err, ShouldBeNil)
+					esEvent := e.(event)
+
+					So(esEvent.Payload.Price, ShouldAlmostEqual, 11.30, .00000001)
+
+				})
+
+				Convey("Struct", func() {
+
+					Convey("unmarshal successful", func() {
+
+						type Payload struct {
+							Username testUsername `es:"username"`
+						}
+
+						type event struct {
+							ESEvent
+							Payload Payload
+						}
+
+						e, err := createIESEvent(event{}, Event{
+							Payload: map[string]interface{}{
+								"username": "hans_peter",
+							},
+						})
+						So(err, ShouldBeNil)
+
+						esEvent := e.(event)
+						So(esEvent.Payload.Username.username, ShouldEqual, "hasn_peter")
+
+					})
+
+				})
 
 			})
 

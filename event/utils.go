@@ -55,22 +55,39 @@ func eventPayloadType(event IESEvent) (reflect.Type, error) {
 
 }
 
-func MarshalEventPayload(event IESEvent) (map[string]interface{}, error) {
+func PayloadToMap(event IESEvent) (map[string]interface{}, error) {
 
-	// get payload type
-	payloadType, err := eventPayloadType(event)
-	if err != nil {
-		return nil, err
+	// event type
+	eventType := reflect.TypeOf(event)
+	if eventType.Kind() == reflect.Ptr {
+		eventType = eventType.Elem()
 	}
 
-	v := reflect.New(payloadType)
+	// event value
+	eventValue := reflect.ValueOf(event)
+	if eventValue.Kind() == reflect.Ptr {
+		eventValue = eventValue.Elem()
+	}
+
+	payloadValue := eventValue.FieldByName("Payload")
+	if !eventValue.IsValid() {
+		return nil, fmt.Errorf("payload field doesn't exist on event '%s'", eventType.Name())
+	}
+
+	// ensure field is not a pointer
+	if eventValue.Type().Kind() == reflect.Ptr {
+		return nil, fmt.Errorf("payload field of event '%s' is not supposed to be a pointer", eventType.Name())
+	}
+
+	// get payload type
+	payloadType := payloadValue.Type()
 
 	parameters := map[string]interface{}{}
 
-	for i := 0; i < v.NumField(); i++ {
+	for i := 0; i < payloadType.NumField(); i++ {
 
 		// value field
-		field := v.Field(i)
+		field := payloadValue.Field(i)
 
 		// type field
 		typeField := payloadType.Field(i)
@@ -78,51 +95,47 @@ func MarshalEventPayload(event IESEvent) (map[string]interface{}, error) {
 		// get name for payload
 		fieldPayloadName, exists := typeField.Tag.Lookup("es")
 		if !exists {
-			return nil, err
+			return nil, fmt.Errorf("missing 'es' tag in events payload field (event: '%s', payload field: '%s')", eventType.Name(), typeField.Name)
 		}
 
 		switch typeField.Type.Kind() {
 
-		// @ todo what about floats? and the huge numbers? Need to validate how they are persisted with mongodb
+		// @ todo what about floats and the huge numbers? Need to validate how they are persisted with mongodb
 		case reflect.String:
+			parameters[fieldPayloadName] = field.Interface()
 		case reflect.Bool:
+			parameters[fieldPayloadName] = field.Interface()
 		case reflect.Int:
-		case reflect.Int8:
-		case reflect.Int16:
-		case reflect.Int32:
-		case reflect.Int64:
+			parameters[fieldPayloadName] = field.Interface()
 		case reflect.Uint:
-		case reflect.Uint8:
-		case reflect.Uint16:
-		case reflect.Uint32:
-		case reflect.Uint64:
+			parameters[fieldPayloadName] = field.Interface()
 		case reflect.Float32:
+			parameters[fieldPayloadName] = field.Interface()
 		case reflect.Float64:
-		case reflect.Map:
 			parameters[fieldPayloadName] = field.Interface()
 		case reflect.Struct:
 
 			// cast to an implementation that can be marshaled
+			// @todo it's not possible to cast to an instance of Marshal if receiver is a pointer
 			m, k := field.Interface().(Marshal)
 			if !k {
-				return nil, fmt.Errorf("failed to marshal field: %s of payload: %s", field.Type().Name(), payloadType.Name())
+				return nil, fmt.Errorf("failed to marshal field: '%s' of payload: '%s' - doesn't statisfy Marshal interface", field.Type().Name(), payloadType.Name())
 			}
 
 			// marshal the field
-			value, err := m.Marshal()
+			marshaledField, err := m.Marshal()
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal field: %s of payload: %s - original error: \"%s\"", field.Type().Name(), payloadType.Name(), err.Error())
 			}
 
-			parameters[fieldPayloadName] = value
-
+			parameters[fieldPayloadName] = marshaledField
 		default:
-			return nil, fmt.Errorf("type: %s is not supported (field: %s - payload: %s", typeField.Type.Kind(), field.Type().Name(), payloadType.Name())
+			return nil, fmt.Errorf("type: %s is not supported (field: '%s' - payload: '%s')", typeField.Type.Kind(), field.Type().Name(), payloadType.Name())
 		}
 
 	}
 
-	return map[string]interface{}{}, nil
+	return parameters, nil
 }
 
 // create payload type from payload
@@ -150,10 +163,15 @@ func payloadMapToPayload(event IESEvent, payload map[string]interface{}) (reflec
 		// type field
 		typeField := payloadType.Field(i)
 
-		//
+		// the field must be exported
+		if !field.CanSet() {
+			continue
+		}
+
+		// get tag
 		fieldTag, exists := typeField.Tag.Lookup("es")
 		if !exists {
-			return reflect.Value{}, fmt.Errorf("failed to lock up tag 'es' in field")
+			return reflect.Value{}, fmt.Errorf("missing 'es' tag in events payload field (event: '%s', payload field: '%s')", eventType.Name(), typeField.Name)
 		}
 
 		//
@@ -167,34 +185,81 @@ func payloadMapToPayload(event IESEvent, payload map[string]interface{}) (reflec
 		case reflect.String:
 
 			// cast to string
-			str, k := payloadValue.(string)
+			val, k := payloadValue.(string)
 			if !k {
-				return reflect.Value{}, errors.New("failed to ")
+				return reflect.Value{}, fmt.Errorf("failed to cast field: '%s' of payload: '%s' to string", typeField.Name, payloadType.Name())
 			}
 
-			field.SetString(str)
+			field.SetString(val)
+
+		case reflect.Bool:
+
+			// cast to bool
+			val, k := payloadValue.(bool)
+			if !k {
+				return reflect.Value{}, fmt.Errorf("failed to cast field: '%s' of payload: '%s' to bool", typeField.Name, payloadType.Name())
+			}
+
+			field.SetBool(val)
+
+		case reflect.Int:
+
+			// cast to bool
+			val, k := payloadValue.(int)
+			if !k {
+				return reflect.Value{}, fmt.Errorf("failed to cast field: '%s' of payload: '%s' to int", typeField.Name, payloadType.Name())
+			}
+
+			field.SetInt(int64(val))
+
+		case reflect.Uint:
+
+			// cast to bool
+			val, k := payloadValue.(uint)
+			if !k {
+				return reflect.Value{}, fmt.Errorf("failed to cast field: '%s' of payload: '%s' to uint", typeField.Name, payloadType.Name())
+			}
+
+			field.SetUint(uint64(val))
+
+		case reflect.Float32:
+
+			// cast to float32
+			val, k := payloadValue.(float64)
+			if !k {
+				return reflect.Value{}, fmt.Errorf("failed to cast field: '%s' of payload: '%s' to float32", typeField.Name, payloadType.Name())
+			}
+
+			field.SetFloat(val)
+
+		case reflect.Float64:
+
+			// cast to float64
+			val, k := payloadValue.(float64)
+			if !k {
+				return reflect.Value{}, fmt.Errorf("failed to cast field: '%s' of payload: '%s' to float64", typeField.Name, payloadType.Name())
+			}
+
+			field.SetFloat(val)
 
 		case reflect.Struct:
 
-			// cast field ot Marshal interface
-			v, k := field.Interface().(Marshal)
+			val := reflect.New(field.Type())
+			val = val.Elem()
+
+			marshallable, k := val.Interface().(Marshal)
 			if !k {
-				return reflect.Value{}, errors.New("received struct in payload that doesn't implement the marshal interface")
+				return reflect.Value{}, fmt.Errorf("failed to unmarshal field: '%s' of payload: '%s' - doesn't statisfy Marshal interface", field.Type().Name(), payloadType.Name())
 			}
 
-			// cast to param map
-			params, k := payloadValue.(map[string]interface{})
-			if !k {
-				return reflect.Value{}, errors.New("failed to cast parameters ")
+			if err := marshallable.Unmarshal(payloadValue); err != nil {
+				return reflect.Value{}, fmt.Errorf("failed to marshal field: %s of payload: %s - original error: \"%s\"", field.Type().Name(), payloadType.Name(), err.Error())
 			}
 
-			if err := v.Unmarshal(params); err != nil {
-				return reflect.Value{}, err
-			}
+			field.Set(val)
 
-			// @todo unmarshal object
 		default:
-			return reflect.Value{}, errors.New("type is not supported")
+			return reflect.Value{}, fmt.Errorf("type: %s is not supported (field: '%s' - payload: '%s')", typeField.Type.Kind(), field.Type().Name(), payloadType.Name())
 		}
 
 	}
