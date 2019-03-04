@@ -147,6 +147,17 @@ func TestReactorRegistry(t *testing.T) {
 
 			})
 
+			Convey("fetch reactors by pointer event", func() {
+
+				rr := NewReactorRegistry()
+
+				So(rr.Register(&testReactorOne{}), ShouldBeNil)
+
+				reactors := rr.Reactors(&testEventOne{})
+				So(reactors, ShouldHaveLength, 1)
+
+			})
+
 		})
 
 	})

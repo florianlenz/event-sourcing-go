@@ -60,13 +60,17 @@ func (r *Registry) Register(reactor interface{}) error {
 	}
 
 	// ensure that the expected argument is an implementation of IESEvent
-	handleMethodParameterType := handleMethod.Type.In(1)
-	if !handleMethodParameterType.Implements(reflect.TypeOf((*event.IESEvent)(nil)).Elem()) {
-		return fmt.Errorf("the handle method expects '%s' which is not an IESImplementation", handleMethodParameterType.Name())
+	handleMethodEvent := handleMethod.Type.In(1)
+	if !handleMethodEvent.Implements(reflect.TypeOf((*event.IESEvent)(nil)).Elem()) {
+		return fmt.Errorf("the handle method expects '%s' which is not an IESImplementation", handleMethodEvent.Name())
+	}
+
+	if handleMethodEvent.Kind() == reflect.Ptr {
+		handleMethodEvent = handleMethodEvent.Elem()
 	}
 
 	// append reactor
-	r.reactors[handleMethodParameterType] = append(r.reactors[handleMethodParameterType], reactorValue)
+	r.reactors[handleMethodEvent] = append(r.reactors[handleMethodEvent], reactorValue)
 
 	return nil
 
@@ -83,6 +87,9 @@ func (r *Registry) Reactors(e event.IESEvent) []reactor {
 
 	// event type
 	eventType := reflect.TypeOf(e)
+	if eventType.Kind() == reflect.Ptr {
+		eventType = eventType.Elem()
+	}
 
 	// reactor type factory
 	reactorTypeFactory := func(reactor reflect.Value) reactor {
