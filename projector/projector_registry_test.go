@@ -87,6 +87,38 @@ func TestProjectorRegistry(t *testing.T) {
 
 			Convey("find relevant projectors", func() {
 
+				registry := NewProjectorRegistry()
+
+				So(registry.Register(&testProjector{
+					interestedInEvents: []event.IESEvent{
+						&testEvent{},
+					},
+				}), ShouldBeNil)
+
+				projectors := registry.ProjectorsForEvent(testEvent{})
+
+				So(projectors, ShouldHaveLength, 1)
+
+			})
+
+			Convey("ignore irrelevant projectors", func() {
+
+				type anotherTestEvent struct {
+					event.ESEvent
+				}
+
+				registry := NewProjectorRegistry()
+
+				So(registry.Register(&testProjector{
+					interestedInEvents: []event.IESEvent{
+						&anotherTestEvent{},
+					},
+				}), ShouldBeNil)
+
+				projectors := registry.ProjectorsForEvent(testEvent{})
+
+				So(projectors, ShouldHaveLength, 0)
+
 			})
 
 		})

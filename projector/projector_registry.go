@@ -3,6 +3,7 @@ package projector
 import (
 	"fmt"
 	"github.com/florianlenz/event-sourcing-go/event"
+	"reflect"
 	"sync"
 )
 
@@ -34,7 +35,37 @@ func (r *Registry) Register(projector IProjector) error {
 
 func (r *Registry) ProjectorsForEvent(event event.IESEvent) []IProjector {
 
+	// lock
+	r.lock.Lock()
+	defer func() {
+		r.lock.Unlock()
+	}()
+
+	// event type
+	eventType := reflect.TypeOf(event)
+	if eventType.Kind() == reflect.Ptr {
+		eventType = eventType.Elem()
+	}
+
 	projectors := []IProjector{}
+
+	for _, proj := range r.projectors {
+
+		for _, e := range proj.InterestedInEvents() {
+
+			// event type
+			eType := reflect.TypeOf(e)
+			if eType.Kind() == reflect.Ptr {
+				eType = eType.Elem()
+			}
+
+			if eType == eventType {
+				projectors = append(projectors, proj)
+			}
+
+		}
+
+	}
 
 	return projectors
 
