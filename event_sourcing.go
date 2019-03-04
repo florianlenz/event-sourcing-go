@@ -24,7 +24,7 @@ func (es *EventSourcing) Commit(e event.IESEvent, onProcessed chan struct{}) err
 	}
 
 	// @todo marshal event payload
-	eventPayload, err := event.MarshalEventPayload(e)
+	eventPayload, err := event.PayloadToMap(e)
 	if err != nil {
 		return err
 	}

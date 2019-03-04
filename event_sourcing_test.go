@@ -33,8 +33,12 @@ func (r *testEventRepository) FetchByID(id primitive.ObjectID) (event.Event, err
 	return r.fetchByID(id)
 }
 
+type testEventPayload struct {
+}
+
 type testEvent struct {
 	event.ESEvent
+	Payload testEventPayload
 }
 
 // test projector
@@ -92,6 +96,7 @@ func TestEventSourcing(t *testing.T) {
 
 			projectorRegistry := projector.NewProjectorRegistry()
 			eventRegistry := event.NewEventRegistry()
+			So(eventRegistry.RegisterEvent("test.event", testEvent{}), ShouldBeNil)
 
 			// persist event channel
 			persistedEventChan := make(chan *event.Event, 1)
@@ -132,6 +137,7 @@ func TestEventSourcing(t *testing.T) {
 			// registries
 			projectorRegistry := projector.NewProjectorRegistry()
 			eventRegistry := event.NewEventRegistry()
+			So(eventRegistry.RegisterEvent("test.event", testEvent{}), ShouldBeNil)
 
 			// register test projector
 			err = projectorRegistry.Register(&testProjector{

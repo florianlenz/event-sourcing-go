@@ -134,7 +134,6 @@ func newProcessor(
 
 				}
 
-				// pass event to reactors
 				if !replay {
 
 					reactors := reactorRegistry.Reactors(esEvent)

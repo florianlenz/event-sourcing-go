@@ -34,16 +34,11 @@ func (r *testProjectorRepository) Drop() error {
 
 // test reactor
 type testReactor struct {
-	handle  func(event event.IESEvent)
-	onEvent string
+	handle func(event event.IESEvent)
 }
 
-func (r *testReactor) Handle(event event.IESEvent) {
+func (r *testReactor) Handle(event testEvent) {
 	r.handle(event)
-}
-
-func (r *testReactor) OnEvent() string {
-	return r.onEvent
 }
 
 func TestProcessor(t *testing.T) {
@@ -162,7 +157,7 @@ func TestProcessor(t *testing.T) {
 			processorTestSet.processor.Process(eventID)
 
 			// we expect an error since the returned event from the event repo was never registered
-			So(<-logger.errorChan, ShouldBeError, "event with name 'unregistered.event' hasn't been registered")
+			So(<-logger.errorChan, ShouldBeError, "event 'unregistered.event' hasn't been registered")
 
 		})
 
@@ -410,7 +405,6 @@ func TestProcessor(t *testing.T) {
 				handle: func(event event.IESEvent) {
 					calledReactor <- struct{}{}
 				},
-				onEvent: "user.created",
 			})
 			So(err, ShouldBeNil)
 
@@ -454,7 +448,6 @@ func TestProcessor(t *testing.T) {
 				handle: func(event event.IESEvent) {
 					calledReactor <- struct{}{}
 				},
-				onEvent: "user.created",
 			})
 			So(err, ShouldBeNil)
 

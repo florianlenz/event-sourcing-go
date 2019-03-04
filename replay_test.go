@@ -10,6 +10,15 @@ import (
 	"testing"
 )
 
+type replayTestEventPayload struct {
+	Event string `es:"event"`
+}
+
+type replayTestEvent struct {
+	event.ESEvent
+	Payload replayTestEventPayload
+}
+
 func TestReplay(t *testing.T) {
 
 	var createDB = func() (*mongo.Database, error) {
@@ -57,25 +66,40 @@ func TestReplay(t *testing.T) {
 		})
 		So(err, ShouldBeNil)
 
+		// projected events channel
+		projectedEvents := make(chan event.IESEvent, 2)
+
 		// projector registry
 		projectorRegistry := projector.NewProjectorRegistry()
+		So(projectorRegistry.Register(&testProjector{
+			name: "user_projector",
+			interestedInEvents: []event.IESEvent{
+				replayTestEvent{},
+			},
+			handleEvent: func(event event.IESEvent) error {
+				projectedEvents <- event
+				return nil
+			},
+		}), ShouldBeNil)
 
 		//  register test event
-		createdWithPayloadChan := make(chan map[string]interface{}, 2)
 		eventRegistry := event.NewEventRegistry()
-
-		So(err, ShouldBeNil)
+		So(eventRegistry.RegisterEvent("user.registered", replayTestEvent{}), ShouldBeNil)
 
 		done := Replay(logger, db, projectorRegistry, eventRegistry)
 
 		// wait till the replay is done
 		<-done
 
-		So(<-createdWithPayloadChan, ShouldResemble, map[string]interface{}{
-			"event": "one",
+		So(<-projectedEvents, ShouldResemble, replayTestEvent{
+			Payload: replayTestEventPayload{
+				Event: "one",
+			},
 		})
-		So(<-createdWithPayloadChan, ShouldResemble, map[string]interface{}{
-			"event": "two",
+		So(<-projectedEvents, ShouldResemble, replayTestEvent{
+			Payload: replayTestEventPayload{
+				Event: "two",
+			},
 		})
 
 	})
