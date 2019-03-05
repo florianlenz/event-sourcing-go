@@ -462,7 +462,7 @@ func TestUtils(t *testing.T) {
 
 				Convey("Struct", func() {
 
-					Convey("unmarshal successful", func() {
+					Convey("unmarshal non pointer successfully", func() {
 
 						type Payload struct {
 							Username testUsername `es:"username"`
@@ -481,11 +481,34 @@ func TestUtils(t *testing.T) {
 						So(err, ShouldBeNil)
 
 						esEvent := e.(event)
-						So(esEvent.Payload.Username.username, ShouldEqual, "hasn_peter")
+						So(esEvent.Payload.Username.username, ShouldEqual, "hans_peter")
 
 					})
 
 				})
+
+			})
+
+		})
+
+		Convey("create IESEvent", func() {
+
+			Convey("recover and attach ESEvent to IESEvent instance", func() {
+
+				type testEvent struct {
+					ESEvent
+					Payload struct {
+					}
+				}
+
+				e, err := createIESEvent(testEvent{}, Event{
+					OccurredAt: 333,
+					Version:    1,
+				})
+				So(err, ShouldBeNil)
+
+				So(e.Version(), ShouldEqual, 1)
+				So(e.OccurredAt(), ShouldEqual, 333)
 
 			})
 

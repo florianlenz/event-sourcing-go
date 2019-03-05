@@ -55,6 +55,12 @@ func eventPayloadType(event IESEvent) (reflect.Type, error) {
 
 }
 
+func toPtr(obj interface{}) interface{} {
+	val := reflect.New(reflect.TypeOf(obj))
+	val.Elem().Set(reflect.ValueOf(obj))
+	return val.Interface()
+}
+
 func PayloadToMap(event IESEvent) (map[string]interface{}, error) {
 
 	// event type
@@ -115,9 +121,15 @@ func PayloadToMap(event IESEvent) (map[string]interface{}, error) {
 			parameters[fieldPayloadName] = field.Interface()
 		case reflect.Struct:
 
+			val := field.Interface()
+
+			if field.Kind() != reflect.Ptr {
+				val = toPtr(field.Interface())
+			}
+
 			// cast to an implementation that can be marshaled
 			// @todo it's not possible to cast to an instance of Marshal if receiver is a pointer
-			m, k := field.Interface().(Marshal)
+			m, k := val.(Marshal)
 			if !k {
 				return nil, fmt.Errorf("failed to marshal field: '%s' of payload: '%s' - doesn't statisfy Marshal interface", field.Type().Name(), payloadType.Name())
 			}
@@ -245,7 +257,6 @@ func payloadMapToPayload(event IESEvent, payload map[string]interface{}) (reflec
 		case reflect.Struct:
 
 			val := reflect.New(field.Type())
-			val = val.Elem()
 
 			marshallable, k := val.Interface().(Marshal)
 			if !k {
@@ -256,7 +267,7 @@ func payloadMapToPayload(event IESEvent, payload map[string]interface{}) (reflec
 				return reflect.Value{}, fmt.Errorf("failed to marshal field: %s of payload: %s - original error: \"%s\"", field.Type().Name(), payloadType.Name(), err.Error())
 			}
 
-			field.Set(val)
+			field.Set(val.Elem())
 
 		default:
 			return reflect.Value{}, fmt.Errorf("type: %s is not supported (field: '%s' - payload: '%s')", typeField.Type.Kind(), field.Type().Name(), payloadType.Name())
@@ -268,16 +279,16 @@ func payloadMapToPayload(event IESEvent, payload map[string]interface{}) (reflec
 
 }
 
-func createIESEvent(esEvent IESEvent, persistedEvent Event) (IESEvent, error) {
+func createIESEvent(event IESEvent, persistedEvent Event) (IESEvent, error) {
 
 	// create new event instance
-	newEvent := reflect.New(reflect.TypeOf(esEvent))
+	newEvent := reflect.New(reflect.TypeOf(event))
 	if newEvent.Kind() == reflect.Ptr {
 		newEvent = newEvent.Elem()
 	}
 
 	// set payload field
-	payload, err := payloadMapToPayload(esEvent, persistedEvent.Payload)
+	payload, err := payloadMapToPayload(event, persistedEvent.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -285,6 +296,21 @@ func createIESEvent(esEvent IESEvent, persistedEvent Event) (IESEvent, error) {
 	payloadField.Set(payload)
 
 	// @todo add ESEvent creation
+	esEventValue := newEvent.FieldByName("ESEvent")
+	if esEventValue.IsValid() {
+		switch esEventValue.Type() {
+		case reflect.TypeOf(ESEvent{}):
+			esEventValue.Set(reflect.ValueOf(ESEvent{
+				occurredAt: persistedEvent.OccurredAt,
+				version:    persistedEvent.Version,
+			}))
+		case reflect.TypeOf(&ESEvent{}):
+			esEventValue.Set(reflect.ValueOf(&ESEvent{
+				occurredAt: persistedEvent.OccurredAt,
+				version:    persistedEvent.Version,
+			}))
+		}
+	}
 
 	// cast event to IESEvent
 	createdEvent, k := newEvent.Interface().(IESEvent)
