@@ -5,6 +5,7 @@ import (
 	"github.com/florianlenz/event-sourcing-go/projector"
 	"github.com/florianlenz/event-sourcing-go/reactor"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	"sync"
 	"time"
 )
 
@@ -15,18 +16,18 @@ type EventSourcing struct {
 	eventRegistry   *event.Registry
 }
 
-func (es *EventSourcing) Commit(e event.IESEvent, onProcessed chan struct{}) error {
+func (es *EventSourcing) Commit(e event.IESEvent) (*sync.WaitGroup, error) {
 
 	// @todo fetch event name based on type
 	eventName, err := es.eventRegistry.GetEventName(e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// @todo marshal event payload
 	eventPayload, err := event.PayloadToMap(e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// new event
@@ -39,22 +40,21 @@ func (es *EventSourcing) Commit(e event.IESEvent, onProcessed chan struct{}) err
 
 	// persist event
 	if err := es.eventRepository.Save(eventToPersist); err != nil {
-		return err
+		return nil, err
 	}
 
-	// processed
-	processedChan := es.processor.Process(*eventToPersist.ID)
+	// wait group
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 
-	if onProcessed != nil {
-		go func() {
-			// wait till event got processed
-			<-processedChan
-			// send processed signal to the passed onProcessed channel
-			onProcessed <- struct{}{}
-		}()
-	}
+	go func() {
+		// wait till event got processed
+		<-es.processor.Process(*eventToPersist.ID)
+		// send processed signal to the passed onProcessed channel
+		wg.Done()
+	}()
 
-	return nil
+	return wg, nil
 
 }
 

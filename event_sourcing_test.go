@@ -115,7 +115,8 @@ func TestEventSourcing(t *testing.T) {
 			testEvent.ESEvent = event.NewESEvent(3333333, 2)
 
 			// commit event
-			So(es.Commit(testEvent, nil), ShouldBeError, "i am a test error")
+			_, err = es.Commit(testEvent)
+			So(err, ShouldBeError, "i am a test error")
 
 			// wait till it reached the repository
 			persistedEvent := <-persistedEventChan
@@ -128,7 +129,7 @@ func TestEventSourcing(t *testing.T) {
 
 		})
 
-		Convey("ensure that projector onProcessed gets notified", func() {
+		Convey("ensure that projector waiting group is decreased once the event got processed", func() {
 
 			// db
 			db, err := createDB()
@@ -148,18 +149,15 @@ func TestEventSourcing(t *testing.T) {
 			es := NewEventSourcing(&testLogger{errorChan: make(chan error, 10)}, db, projectorRegistry, eventRegistry, reactor.NewReactorRegistry())
 			es.Start()
 
-			// on processed channel
-			onProcessed := make(chan struct{}, 1)
-
 			// commit event
-			So(es.Commit(testEvent{}, onProcessed), ShouldBeNil)
+			done, err := es.Commit(testEvent{})
+			So(err, ShouldBeNil)
 
-			// make sure that we waited till
-			So(<-onProcessed, ShouldResemble, struct{}{})
+			done.Wait()
 
 		})
 
-		Convey("make sure that onProcessed is only notified when the event actually got processed", func() {
+		Convey("make sure that waiting group is only decreased when the event actually got processed", func() {
 
 		})
 
